@@ -1,12 +1,14 @@
 # Percent Grading Foundations and Engineering Textbook
 
+**Current implementation note (Rust 0.7):** all new AI grading outputs require an examiner score and explicit human review. Earlier chapters describe their named historical versions; they do not authorize current official-grade release. Read Chapter 19 and [the human-review guide](../docs/HUMAN_REVIEW.md) before using grades consequentially.
+
 Proposed by Yubin Kim. First teaching edition, 11 November 2026.
 
 Percent Grading studies how to preserve the valid parts of an answer without mistaking them for complete success. This textbook develops the proposed framework, explains a minimal implementation, and teaches readers to design, inspect, and test a grading system. It is written for students, educators, and software engineers who can read basic formulas and JSON.
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Chapter 17 develops the Rust 0.5.0 benchmark harness, bounded experiments, and application interfaces. Chapter 18 develops the Rust 0.6.0 historical-failure regression gate, official score ceiling, and finite proof achievement. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Chapter 17 develops the Rust 0.5.0 benchmark harness, bounded experiments, and application interfaces. Chapter 18 develops the historical Rust 0.6.0 regression gate, score ceiling, and finite proof achievement. Chapter 19 introduces Rust 0.7.0 required examiner review, 50:50 cross-review, full human override, and readable decision records. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -886,7 +888,7 @@ The gate binds thresholds to an exact suite and recomputes metrics from full tri
 
 ## 18.3 A ceiling is a convention, not an uncertainty estimate
 
-Beginning with Rust 0.6, the official profile is capped at 99.9 after computing the weighted anchor score. The rule is `min(raw_weighted_percent, 99.9)`, not multiplication by 0.999. Ordinary partial scores are unchanged. Raw criterion points, critical thresholds, coverage, and benchmark accuracy keep their existing units.
+In the historical Rust 0.6 protocol, the official profile was capped at 99.9 after computing the weighted anchor score. Rust 0.7 keeps this cap on the provisional AI profile and additionally requires the examiner decision described in Chapter 19. The cap rule is `min(raw_weighted_percent, 99.9)`, not multiplication by 0.999. Ordinary partial scores are unchanged. Raw criterion points, critical thresholds, coverage, and benchmark accuracy keep their existing units.
 
 No statistical argument establishes that every complete answer has exactly 0.1% residual uncertainty. The ceiling is a product choice. It must not change a withheld answer into a zero or turn an equal displayed interval into a settled result. Old saved runs retain their original scoring convention; historical results are not silently rewritten to match today's display.
 
@@ -900,7 +902,7 @@ This is exhaustive checking within a small finite domain. It is not a verifier f
 
 ## 18.5 Keep the joke outside the grade
 
-The requested surprise is an apparent grading overflow: **10,000%** with a reassuring explanation. The implementation returns it as a separate celebration object. The ordinary current-task report remains capped at 99.9, and exports and benchmarks continue using that report.
+The requested surprise is an apparent grading overflow: **10,000%** with a reassuring explanation. The implementation returns it as a separate celebration object. The provisional AI current-task report remains capped at 99.9. In Rust 0.7, official grade export uses only the finalized human decision; benchmarks can still inspect the separate AI profile.
 
 The badge requires a checked certificate, a ready report, and full raw current anchors without disagreement or blocking evidence. A partial raw result that happens to reach the display cap is insufficient. A verified formal statement cannot award missing explanation credit, and two full-score model judgments cannot substitute for the certificate.
 
@@ -916,4 +918,38 @@ The displayed message calls the number a celebration and states the finite scope
 6. A student changes the challenge to an easy tautology and recomputes every hash. Which check must the host supply beyond hash validation?
 7. A proof badge displays 10,000%. Which value should a class grade export use?
 
-Worked answers: (1) Extra credit requires an already declared, genuinely satisfied criterion; length alone creates no credit. (2) Coverage and category results expose selective withholding. (3) Wrong-agreement counts against the authored expected anchors. (4) No; settlement and raw disagreement remain unchanged. (5) Completeness prevents selective omission of counterexamples. (6) Trusted author approval and binding to the previously approved task challenge. (7) The ordinary official report, never the cosmetic badge.
+Worked answers: (1) Extra credit requires an already declared, genuinely satisfied criterion; length alone creates no credit. (2) Coverage and category results expose selective withholding. (3) Wrong-agreement counts against the authored expected anchors. (4) No; settlement and raw disagreement remain unchanged. (5) Completeness prevents selective omission of counterexamples. (6) Trusted author approval and binding to the previously approved task challenge. (7) The finalized examiner decision in Rust 0.7, never the cosmetic badge or a pending AI score.
+
+# 19 Human authority and required cross-review
+
+## 19.1 Advice and an assessment decision are different records
+
+A model can provide a useful explanation without holding the authority to determine a student's grade. Rust 0.7 makes that distinction executable: a newly calculated AI report has a pending examiner decision. An authorized examiner must supply their own score, read the report, and explicitly record the decision. Two-model agreement or a checked proof certificate does not remove this step.
+
+## 19.2 Why 50:50 is a declared policy
+
+Let A be the settled AI current-task score and H the examiner's score. Balanced mode returns `(A + H) / 2`. OpenAI and Claude supply one reconciled AI side; the formula is not one third for each of three judges. These weights express the author's chosen assessment policy, not a measured claim that human and AI reliability are equal. Evaluate that policy rather than presenting its percentages as statistical certainty.
+
+The examiner may choose `human_override`, returning H with human weight 100% and AI weight 0%. A reasoned override can address a wrong interpretation or an unusable AI result. It preserves the AI's original score, evidence limitations, and disagreement. It does not rewrite factual truth or authorize unrecorded favoritism. The official score ceiling remains 99.9.
+
+## 19.3 Readable reasons support human autonomy
+
+The HTML and Markdown review reports display the task, submitted answer, criteria, model reasons, quoted evidence, conditions, disagreements, and human decision. Those are recorded justifications, not private model thought processes. Reviewers should compare the explanation with the actual task and answer, and record an independent assessment before reading the model where practical to limit anchoring.
+
+The reviewer must provide a grading basis and rationale, identify themselves, and acknowledge reading the AI report and its limits. The software validates bindings, score range, weights, and revision history. A text identifier and a Boolean acknowledgment do not authenticate a person; the application host must enforce reviewer roles.
+
+## 19.4 Preserve change without hiding the original
+
+A review template binds the current decision hash. A fresh revision uses the latest report, while a stale form is rejected. Prior human reviews remain in a bounded history, and original artifacts should be retained. An examiner can change their decision, but an application must not silently replace the historical evidence or change a rubric for one student alone. Consistent cohort review and an appeal process remain necessary.
+
+An application releases only the finalized `report.decision.final_percent`. A provisional AI number is not zero, an approved grade, or a disciplinary finding. The companion Exam Assurance project requires that decision separately for each stage; its confirmation statuses remain recommendations for humans.
+
+## 19.5 Exercises
+
+1. The AI score is 80 and the examiner score is 60. What does balanced mode return?
+2. The examiner rejects the AI interpretation and records a justified full override with H = 72. Does the AI score contribute?
+3. Both models agree on every criterion. Can the program release a new official grade without examiner review?
+4. A reviewer selects 100% human control. May the score become 100 or 10,000?
+5. A student's second-stage score falls under stressful conditions. Does that establish unauthorized AI use in stage one?
+
+Answers: (1) 70. (2) No; the official score is 72 and the AI record remains visible. (3) No. (4) No; 100% is a decision weight and the official ceiling is 99.9. (5) No; authorized people must review task conditions and the student's account rather than infer misconduct from a score gap.

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createClient, API_VERSION, PercentGradingError } from "../index.mjs";
+import { createClient, API_VERSION, PercentGradingError, officialPercent } from "../index.mjs";
 
 const token = "test-token-that-is-at-least-thirty-two-characters";
 function success(request, result = { lock: { contract_hash: "example" } }, status = 200) {
@@ -92,12 +92,12 @@ test("pre-parse authentication failures may omit request identity", async () => 
   await assert.rejects(client.compile("x"), error => error.code === "unauthorized" && error.status === 401);
 });
 
-test("proof adapters preserve the official score and separate cosmetic celebration", async () => {
+test("proof adapters preserve provisional scores without releasing an official grade", async () => {
   const operations = [];
   const result = {
-    report: { current: { percent: 99.9 } },
+    report: { current: { percent: 99.9 }, decision: { status: "awaiting_examiner", final_percent: null } },
     verification: { checker: "bounded-propositional-checker" },
-    celebration: { display_percent: 10000, official_percent: 99.9, message: "Celebration only; official score remains 99.9%." },
+    celebration: { display_percent: 10000, official_percent: null, message: "Celebration only; examiner review is still required." },
   };
   const client = createClient({ token, fetchImpl: async (_, options) => {
     const request = JSON.parse(options.body);
@@ -110,6 +110,7 @@ test("proof adapters preserve the official score and separate cosmetic celebrati
   assert.deepEqual(operations, ["proof_policy", "proof_prompt", "proof_evaluate"]);
   assert.deepEqual(checked, result);
   assert.equal(checked.report.current.percent, 99.9);
+  assert.equal(officialPercent(checked.report), null);
   assert.equal(checked.celebration.display_percent, 10000);
 });
 
@@ -135,4 +136,38 @@ test("invalid proof certificates fail without a retry or an invented celebration
   await assert.rejects(client.proofEvaluate({ lock: {}, policy: {}, answer: "Fermat is proved", certificate: {}, openai: {}, claude: {} }),
     error => error.code === "validation_failed" && error.status === 422);
   assert.equal(calls, 1);
+});
+
+test("officialPercent never releases AI-only, legacy, incomplete or malformed final results", () => {
+  assert.equal(officialPercent({ current: { percent: 99.9 } }), null);
+  assert.equal(officialPercent({ decision: { status: "awaiting_examiner", final_percent: null } }), null);
+  const report = { status: "ready", current: { percent: 90 }, decision: {
+    status: "finalized", mode: "balanced", human_weight_percent: 50, ai_weight_percent: 50,
+    human_percent: 70, ai_percent: 90, final_percent: 80,
+    review: { mode: "balanced", human_percent: 70, reviewed_ai_report: true, acknowledged_ai_limits: true },
+  } };
+  assert.equal(officialPercent(report), 80);
+  for (const change of [ { final_percent: 90 }, { human_weight_percent: 0 }, { final_percent: 100 }, { final_percent: NaN } ]) {
+    assert.throws(() => officialPercent({ ...report, decision: { ...report.decision, ...change } }), TypeError);
+  }
+  assert.throws(() => officialPercent({ ...report, status: "blocked" }), TypeError);
+  assert.throws(() => officialPercent({ ...report, decision: { ...report.decision, review: { ...report.decision.review, reviewed_ai_report: "true" } } }), TypeError);
+  assert.equal(officialPercent({ ...report, status: "blocked", decision: { ...report.decision,
+    mode: "human_override", human_weight_percent: 100, ai_weight_percent: 0, final_percent: 70,
+    review: { ...report.decision.review, mode: "human_override" },
+  } }), 70);
+});
+
+test("review adapters send explicit examiner operations without impersonating completion", async () => {
+  const operations = [];
+  const client = createClient({ token, fetchImpl: async (_, options) => {
+    const request = JSON.parse(options.body);
+    operations.push(request.payload.operation);
+    if (request.payload.operation === "examiner_review") assert.equal(request.payload.review.reviewed_ai_report, false);
+    return success(request, { status: "fixture_only" });
+  } });
+  await client.reviewTemplate({ lock: {}, answer: "A", report: {} });
+  await client.reviewReport({ lock: {}, answer: "A", report: {} });
+  await client.examinerReview({ operation: "grade", lock: {}, answer: "A", report: {}, review: { reviewed_ai_report: false } });
+  assert.deepEqual(operations, ["review_template", "review_report", "examiner_review"]);
 });

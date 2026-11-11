@@ -35,10 +35,14 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T, String> {
         .map_err(|e| format!("Invalid JSON in {}: {e}", path.display()))
 }
 pub fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())? + "\n";
+    write_new_text(path, &text)
+}
+/// Write a human-readable artifact without replacing an existing review or record.
+pub fn write_new_text(path: &Path, text: &str) -> Result<(), String> {
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let bytes = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -49,10 +53,25 @@ pub fn write_new<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
                 path.display()
             )
         })?;
-    file.write_all(&bytes)
-        .and_then(|_| file.write_all(b"\n"))
+    file.write_all(text.as_bytes())
         .and_then(|_| file.sync_all())
         .map_err(|e| e.to_string())
+}
+/// CLI convenience: accept the raw saved report or a known result envelope.
+/// Only the report itself enters cryptographic and semantic review validation.
+pub fn load_report(path: &Path) -> Result<Report, String> {
+    let value: Value = read_json(path)?;
+    let report = if value.get("engine_version").is_some() {
+        &value
+    } else if let Some(report) = value.get("report") {
+        report
+    } else {
+        value
+            .get("result")
+            .and_then(|result| result.get("report"))
+            .ok_or("Expected a grading report or a result containing report")?
+    };
+    serde_json::from_value(report.clone()).map_err(|_| "Invalid grading report schema".into())
 }
 pub fn load_contract(path: &Path) -> Result<LockedContract, String> {
     let lock: LockedContract = read_json(path)?;
@@ -354,6 +373,10 @@ pub fn replay(dir: &Path) -> Result<Value, String> {
         // 0.5 introduced experiment trials. Their original prompts and score
         // scale remain replayable, while input hashes are still checked below.
         expected.engine_version = "0.5.0".into();
+    } else if snapshot.identity.engine_version == "0.6.0" {
+        // Preserve the historical capped AI report byte semantics. A historical
+        // report is never silently converted into an examiner-approved grade.
+        expected.engine_version = "0.6.0".into();
     }
     if serde_json::to_value(&expected).unwrap() != serde_json::to_value(&snapshot.identity).unwrap()
     {
@@ -1282,7 +1305,7 @@ mod tests {
         assert_eq!(fs::read(old_dir.join("report.json")).unwrap(), before);
         read_judgments(&old_dir).unwrap();
 
-        legacy.identity.engine_version = "0.7.0".into();
+        legacy.identity.engine_version = "0.8.0".into();
         let unsupported_dir = dir.join(legacy.identity.run_id().unwrap());
         write_new(&unsupported_dir.join("input.json"), &legacy).unwrap();
         assert!(
@@ -1290,6 +1313,35 @@ mod tests {
                 .unwrap_err()
                 .contains("Run identity")
         );
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn version_06_reports_replay_without_manufacturing_examiner_approval() {
+        let (lock, fixture, config, dir) = setup();
+        let result = run_with(&lock, &fixture.answer, &config, &dir, |p, _, _, _, _, _| {
+            Ok(response(&lock, &fixture, p))
+        })
+        .unwrap();
+        assert_eq!(result["report"]["decision"]["status"], "awaiting_examiner");
+        let current = PathBuf::from(result["run_directory"].as_str().unwrap());
+        let mut legacy: Snapshot = read_json(&current.join("input.json")).unwrap();
+        legacy.identity.engine_version = "0.6.0".into();
+        let old_id = legacy.identity.run_id().unwrap();
+        let old_dir = dir.join(&old_id);
+        write_new(&old_dir.join("input.json"), &legacy).unwrap();
+        for provider in [Provider::Openai, Provider::Claude] {
+            let name = format!("{provider}.response.json");
+            fs::copy(current.join(&name), old_dir.join(name)).unwrap();
+        }
+        let report = compute(&old_dir, &legacy).unwrap();
+        assert!(report.decision.is_none());
+        write_new(&old_dir.join("report.json"), &report).unwrap();
+        let before = fs::read(old_dir.join("report.json")).unwrap();
+        let restored = replay(&old_dir).unwrap();
+        assert_eq!(restored["report"]["engine_version"], "0.6.0");
+        assert!(restored["report"].get("decision").is_none());
+        assert_eq!(fs::read(old_dir.join("report.json")).unwrap(), before);
         cleanup(&dir);
     }
 }

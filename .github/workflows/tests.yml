@@ -22,6 +22,7 @@ jobs:
       - run: cargo run --locked --example embed
       - run: cargo run --locked -- api examples/integration/compile.request.json
       - run: node --test sdk/javascript/test/client.test.mjs
+      - run: node --test tests/review_ui.test.mjs
       - run: node --test sdk/javascript/test/http.integration.mjs
       - run: cargo run --locked -- compile policies/apple.aha --out local-runs/apple.lock.json
       - run: cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-blue.fixture.json

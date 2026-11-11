@@ -1,5 +1,7 @@
 # Claim-level evidence audits
 
+**Current release rule:** evidence checks produce a provisional AI report. They do not approve an official grade. Rust 0.7 additionally requires the examiner score and 50:50 review or an explicit, reasoned full human override; original evidence warnings remain visible. See [HUMAN_REVIEW.md](HUMAN_REVIEW.md).
+
 Version 0.4 adds a checked evidence policy, claim-to-source links, two-provider source reviews, and a deterministic gate on final grading. It answers a narrower question than scientific truth: **does the supplied, reviewed material justify using this claim under the declared conditions?**
 
 A DOI, a recognizable publisher, or agreement between two models does not establish truth. The new layer records how evidence was admitted, what it was said to support, and what remains unresolved. It does not crawl the web or certify an entire field's literature.

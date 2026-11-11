@@ -10,13 +10,27 @@ export interface RunConfig { openai_model: string; claude_model: string; limits:
 export interface AnswerInput { lock: LockedContract; answer: string; evidence?: EvidencePack | null; }
 export interface EvaluateInput extends AnswerInput { openai: Judgment; claude: Judgment; }
 export interface GradeInput extends AnswerInput { config: RunConfig; }
-/** Official 0.6 score bounds never exceed 99.9. Coverage is still measured on 0..100. */
+/** Provisional AI profile. Never export this as the official examiner-approved grade. */
 export interface ScoreProfile { percent: number | null; coverage_percent: number; lower_percent: number; upper_percent: number; }
 export interface GradingReport {
   engine_version: string; contract_hash: string; answer_hash: string; status: string;
   current: ScoreProfile; future: ScoreProfile | null; disagreements: string[];
-  critical_failures: string[]; criteria: Json[]; interpretation: string;
+  critical_failures: string[]; criteria: Json[]; interpretation: string; decision?: ExaminerDecision | null;
 }
+export interface ExaminerReview {
+  format: "percent-grading-examiner-review-v1"; report_hash: string; expected_decision_hash: string;
+  contract_hash: string; answer_hash: string; examiner_id: string; human_percent: number;
+  mode: "balanced" | "human_override"; grading_basis: string; rationale: string;
+  reviewed_ai_report: boolean; acknowledged_ai_limits: boolean;
+}
+export interface ExaminerDecision {
+  status: "awaiting_examiner" | "finalized"; mode: "balanced" | "human_override" | null;
+  report_hash: string; ai_weight_percent: number; human_weight_percent: number;
+  ai_percent: number | null; human_percent: number | null; final_percent: number | null;
+  review: ExaminerReview | null; history: ExaminerReview[]; decision_hash: string; notice: string;
+}
+export interface ReviewInput { lock: LockedContract; answer: string; report: GradingReport; }
+export interface ExaminerReviewInput extends ReviewInput { review: ExaminerReview; }
 /** Keep the full policy object returned by proofPolicy; Rust recompiles and verifies it. */
 export interface LockedProofPolicy {
   format: "percent-grading-proof-policy-v1"; compiler_revision: string; contract_hash: string;
@@ -29,7 +43,7 @@ export interface ProofPolicyInput { lock: LockedContract; source: string; }
 export interface ProofPromptInput { lock: LockedContract; policy: LockedProofPolicy; answer: string; }
 export interface ProofEvaluateInput extends EvaluateInput { policy: LockedProofPolicy; certificate: Certificate; }
 /** Cosmetic metadata only: never add display_percent to a score, average or ranking. */
-export interface Celebration { display_percent: 10000; official_percent: 99.9; message: string; }
+export interface Celebration { display_percent: 10000; official_percent: number | null; message: string; }
 export interface ProofResult {
   origin: "imported_judgments_and_certificate";
   evidence_hash: string | null;
@@ -64,7 +78,10 @@ export type Operation =
   | ({ operation: "proof_policy" } & ProofPolicyInput)
   | ({ operation: "proof_prompt" } & ProofPromptInput)
   | ({ operation: "proof_evaluate" } & ProofEvaluateInput)
-  | ({ operation: "benchmark_gate" } & BenchmarkGateInput);
+  | ({ operation: "benchmark_gate" } & BenchmarkGateInput)
+  | ({ operation: "review_template" } & ReviewInput)
+  | ({ operation: "review_report" } & ReviewInput)
+  | ({ operation: "examiner_review" } & ExaminerReviewInput);
 export interface RequestOptions { requestId?: string; }
 export interface ClientOptions { baseUrl?: string; token: string; timeoutMs?: number; fetchImpl?: typeof fetch; }
 export class PercentGradingError extends Error { code: string; status: number | null; constructor(code: string, message: string, status?: number | null); }
@@ -78,5 +95,10 @@ export interface Client {
   proofPrompt(input: ProofPromptInput, options?: RequestOptions): Promise<{ system: string; user: string; schema: Json }>;
   proofEvaluate(input: ProofEvaluateInput, options?: RequestOptions): Promise<ProofResult>;
   benchmarkGate(input: BenchmarkGateInput, options?: RequestOptions): Promise<{ gate: GateReport }>;
+  reviewTemplate(input: ReviewInput, options?: RequestOptions): Promise<{ review: ExaminerReview; notice: string }>;
+  reviewReport(input: ReviewInput, options?: RequestOptions): Promise<{ html: string; markdown: string; notice: string }>;
+  examinerReview(input: ExaminerReviewInput, options?: RequestOptions): Promise<{ report: GradingReport; notice: string }>;
 }
 export function createClient(options: ClientOptions): Client;
+/** Returns null for provisional/legacy data; use only with a Rust-validated report. */
+export function officialPercent(report: GradingReport): number | null;

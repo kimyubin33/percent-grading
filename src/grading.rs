@@ -21,7 +21,7 @@ const SCORE_CEILING_NOTE: &str = " Official score values and bounds are capped a
 fn score_ceiling(engine_version: &str) -> Result<f64, String> {
     match engine_version {
         "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" => Ok(100.0),
-        "0.6.0" => Ok(MAX_OFFICIAL_PERCENT),
+        "0.6.0" | "0.7.0" => Ok(MAX_OFFICIAL_PERCENT),
         _ => Err("Unsupported scoring engine version".into()),
     }
 }
@@ -81,6 +81,9 @@ pub struct Report {
     pub critical_failures: Vec<String>,
     pub criteria: Vec<CriterionReport>,
     pub interpretation: String,
+    /// Present for 0.7 onward. AI consensus is provisional until a human reviews it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision: Option<crate::human::Decision>,
 }
 
 /// A deliberately small schema subset supported by both provider adapters.
@@ -374,7 +377,7 @@ pub fn aggregate_for_version(
     } else {
         "ready"
     };
-    Ok(Report {
+    let mut report = Report {
         engine_version: engine_version.into(),
         contract_hash: contract_hash.into(),
         answer_hash: answer_hash.into(),
@@ -389,7 +392,13 @@ pub fn aggregate_for_version(
         } else {
             LEGACY_INTERPRETATION.into()
         },
-    })
+        decision: None,
+    };
+    if engine_version == "0.7.0" {
+        report.interpretation.push_str(" AI scores are provisional. An examiner must supply a score and review the evidence before an official final score exists. The default is 50% examiner and 50% AI; an explicit, documented examiner override uses 100% examiner weight.");
+        report.decision = Some(crate::human::pending(&report)?);
+    }
+    Ok(report)
 }
 
 /// Withhold criteria whose frozen reference claims did not pass evidence review.
@@ -399,6 +408,11 @@ pub fn apply_evidence_gate(report: &mut Report, blocked: &[String]) -> Result<()
     let ceiling = score_ceiling(&report.engine_version)?;
     if blocked.is_empty() {
         return Ok(());
+    }
+    if report.decision.as_ref().is_some_and(|d| d.review.is_some()) {
+        return Err(
+            "A reviewed AI record cannot be changed; generate and review a new AI report".into(),
+        );
     }
     let ids: BTreeSet<_> = blocked.iter().map(String::as_str).collect();
     if ids.len() != blocked.len()
@@ -440,6 +454,9 @@ pub fn apply_evidence_gate(report: &mut Report, blocked: &[String]) -> Result<()
     const NOTE: &str = " Evidence-unresolved criteria span all allowed anchor points because their reference claims lack sufficient reviewed support. This is not a zero award or a statistical confidence interval.";
     if !report.interpretation.ends_with(NOTE) {
         report.interpretation.push_str(NOTE);
+    }
+    if report.engine_version == "0.7.0" {
+        report.decision = Some(crate::human::pending(report)?);
     }
     Ok(())
 }
@@ -582,12 +599,12 @@ mod tests {
             assert!(!report.interpretation.contains("99.9"));
         }
         assert!(
-            aggregate_for_version("0.7.0", &c, "contract", "red apple", "answer", &a, &a,)
+            aggregate_for_version("0.8.0", &c, "contract", "red apple", "answer", &a, &a,)
                 .unwrap_err()
                 .contains("Unsupported scoring engine version")
         );
         let mut unsupported = score(&c, &a, &a).unwrap();
-        unsupported.engine_version = "0.7.0".into();
+        unsupported.engine_version = "0.8.0".into();
         let unchanged = unsupported.clone();
         assert!(apply_evidence_gate(&mut unsupported, &["principle".into()]).is_err());
         assert_eq!(unsupported, unchanged);

@@ -3,6 +3,7 @@ export const API_VERSION = "percent-grading-api-v1";
 const OPERATIONS = new Set([
   "compile", "prompt", "evaluate", "grade", "evidence_policy", "evidence_prepare", "evidence_aggregate",
   "proof_policy", "proof_prompt", "proof_evaluate", "benchmark_gate",
+  "review_template", "examiner_review", "review_report",
 ]);
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 let sequence = 0;
@@ -139,5 +140,30 @@ export function createClient({ baseUrl = "http://127.0.0.1:8787", token, timeout
     proofPrompt: (input, options) => request({ ...input, operation: "proof_prompt" }, options),
     proofEvaluate: (input, options) => request({ ...input, operation: "proof_evaluate" }, options),
     benchmarkGate: (input, options) => request({ ...input, operation: "benchmark_gate" }, options),
+    reviewTemplate: (input, options) => request({ ...input, operation: "review_template" }, options),
+    examinerReview: (input, options) => request({ ...input, operation: "examiner_review" }, options),
+    reviewReport: (input, options) => request({ ...input, operation: "review_report" }, options),
   });
+}
+
+/** Only use with a report validated by the trusted Rust service. Never falls back to the AI score. */
+export function officialPercent(report) {
+  const decision = report?.decision;
+  if (!decision || decision.status !== "finalized") return null;
+  const validScore = value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 99.9;
+  const review = decision.review;
+  if (review?.reviewed_ai_report !== true || review.acknowledged_ai_limits !== true || !validScore(review.human_percent)
+      || !validScore(decision.final_percent) || decision.human_percent !== review.human_percent) {
+    throw new TypeError("A finalized score requires a valid examiner review; validate the report with Rust.");
+  }
+  const balanced = decision.mode === "balanced" && review.mode === "balanced"
+    && decision.human_weight_percent === 50 && decision.ai_weight_percent === 50
+    && report.status === "ready" && validScore(report.current?.percent)
+    && decision.ai_percent === report.current.percent
+    && decision.final_percent === (review.human_percent + report.current.percent) / 2;
+  const override = decision.mode === "human_override" && review.mode === "human_override"
+    && decision.human_weight_percent === 100 && decision.ai_weight_percent === 0
+    && decision.final_percent === review.human_percent;
+  if (!balanced && !override) throw new TypeError("Invalid examiner weighting or final score; validate the report with Rust.");
+  return decision.final_percent;
 }

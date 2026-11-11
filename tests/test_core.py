@@ -23,6 +23,8 @@ class GradingTests(unittest.TestCase):
         self.assertAlmostEqual(result["observed_percent"], 83.3333333333)
         self.assertAlmostEqual(result["lower_percent"], 75)
         self.assertAlmostEqual(result["upper_percent"], 85)
+        self.assertIsNone(result["official_percent"])
+        self.assertEqual(result["human_review_status"], "legacy_provisional_requires_current_rust_review")
 
     def test_all_abstain_preserves_uncertainty(self):
         for row in self.judgment["judgments"]:

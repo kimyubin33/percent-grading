@@ -1,8 +1,8 @@
 use percent_grading::{
     VERSION, benchmark, benchmark_gate, benchmark_runner, contract, discovery, evidence,
-    evidence_runner, grading, proof,
+    evidence_runner, grading, human, proof,
     providers::Limits,
-    research, revision,
+    research, review_view, revision,
     runner::{self, RunConfig},
     server, service,
 };
@@ -28,6 +28,9 @@ const HELP: &str = r#"Percent Grading: a checked contract and exactly two AI pro
   percent-grading prompt CONTRACT.json ANSWER.txt [--research RESEARCH.json | --evidence EVIDENCE.json]
   percent-grading demo CONTRACT.json FIXTURE.json
   percent-grading evaluate CONTRACT.json ANSWER.txt OPENAI.json CLAUDE.json [--evidence EVIDENCE.json]
+  percent-grading review-template CONTRACT.json ANSWER.txt REPORT.json --out EXAMINER.json
+  percent-grading review-report CONTRACT.json ANSWER.txt REPORT.json --out REPORT.html
+  percent-grading review CONTRACT.json ANSWER.txt REPORT.json EXAMINER.json --out REVIEWED.json
   percent-grading grade CONTRACT.json ANSWER.txt --openai-model MODEL --claude-model MODEL [--research RESEARCH.json | --evidence EVIDENCE.json] [API_OPTIONS]
   percent-grading replay RUN_DIRECTORY
   percent-grading proof-policy CONTRACT.json CHALLENGE.aha --out POLICY.json
@@ -45,7 +48,9 @@ API_OPTIONS: --runs-dir DIR --max-output-tokens 4096 --max-attempts 1 --timeout-
 Grade and audit-evidence call AI APIs and incur provider usage. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Both providers receive the same inputs independently.
 Benchmark-run also calls the two providers within its declared attempt budget. Its expectations never enter judge prompts; repeated trials retain all outcomes. API grade operations can call providers only with --allow-live true. Serve requires a separate PERCENT_GRADING_API_TOKEN (at least 32 ASCII characters) and binds only to loopback. Browser frontends should call their own backend rather than exposing tokens.
 Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Evidence sources and search logs are supplied records; preparation does not fetch or certify them. Imported reviews and demo fixtures do not attest provider execution. Revision creates a pending plan for every declared cohort member, not a completed regrade. Existing files and saved judgments are never overwritten.
-New official score profiles are capped at 99.9%; raw anchor points and coverage still use 0..100. Historical runs replay with their original score rules. Proof operations are offline and verify only a bounded propositional challenge, not arbitrary mathematical proofs. Their 10,000% celebration is separate from the official grade. Benchmark-gate writes its report and exits 3 when valid results fail the supplied gate; malformed inputs exit 2."#;
+Every new AI report is provisional: decision.final_percent remains null until examiner review. An examiner score is REQUIRED for official use. The default is 50% examiner and 50% AI; human_override explicitly applies 100% examiner when the examiner rejects the AI direction. This changes the weight, not the 99.9% score ceiling. Review requires the examiner's grading basis, rationale and explicit acknowledgements. AI agreement and fluent explanations do not establish truth or justify a disciplinary decision. The host must authenticate reviewers, apply consistent criteria and preserve review/appeal records. Review outputs are new files; the original AI report is never overwritten.
+Review-template creates an incomplete draft with unchecked acknowledgements. Review-report creates a private, offline-readable HTML report, or Markdown when --out ends in .md; an exported page draft must still pass the review command/API. Review files can be raw report objects or the report returned by evaluate/grade/API envelopes.
+AI profiles and final reviewed scores are capped at 99.9%; raw anchor points and coverage still use 0..100. Historical runs replay with their original score rules and are not automatically marked examiner-approved. Proof operations are offline and verify only a bounded propositional challenge, not arbitrary mathematical proofs. Their 10,000% celebration is separate from any final grade and cannot bypass examiner review. Benchmark-gate writes its report and exits 3 when valid results fail the supplied gate; malformed inputs exit 2."#;
 
 fn options(args: &[String], allowed: &[&str]) -> Result<BTreeMap<String, String>, String> {
     if !args.len().is_multiple_of(2) {
@@ -100,6 +105,52 @@ fn allow_live(opts: &BTreeMap<String, String>) -> Result<bool, String> {
 
 fn run(args: &[String]) -> Result<Value, String> {
     match args.first().map(String::as_str) {
+        Some("review-template") if args.len() >= 4 => {
+            let opts = options(&args[4..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
+            let report = runner::load_report(Path::new(&args[3]))?;
+            let review = human::template(&lock, &answer, &report)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &review)?;
+            Ok(
+                json!({"status":"examiner_draft_created","output":target,"review":review,"notice":"Supply your own score, grading basis and rationale; read the AI report and explicitly acknowledge its limitations. This template is not a final grade."}),
+            )
+        }
+        Some("review-report") if args.len() >= 4 => {
+            let opts = options(&args[4..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
+            let report = runner::load_report(Path::new(&args[3]))?;
+            let target = required(&opts, "--out")?;
+            let extension = Path::new(target)
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let text = match extension.as_str() {
+                "html" | "htm" => review_view::render(&lock, &answer, &report)?,
+                "md" => review_view::markdown(&lock, &answer, &report)?,
+                _ => return Err("Review report output must end in .html, .htm or .md".into()),
+            };
+            runner::write_new_text(Path::new(target), &text)?;
+            Ok(
+                json!({"status":"examiner_report_created","output":target,"notice":"Private examiner artifact. Reading this report or exporting its draft does not finalize a grade; submit an explicit examiner review."}),
+            )
+        }
+        Some("review") if args.len() >= 5 => {
+            let opts = options(&args[5..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
+            let report = runner::load_report(Path::new(&args[3]))?;
+            let review = runner::read_json(Path::new(&args[4]))?;
+            let reviewed = human::review(&lock, &answer, &report, &review)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &reviewed)?;
+            Ok(
+                json!({"status":"examiner_review_recorded","output":target,"report":reviewed,"notice":"The examiner retains final authority. Preserve this decision and the original AI report. A review record is a supplied human declaration, not authenticated identity or a guarantee of correctness."}),
+            )
+        }
         Some("proof-policy") if args.len() >= 3 => {
             let opts = options(&args[3..], &["--out"])?;
             let lock = runner::load_contract(Path::new(&args[1]))?;

@@ -1,5 +1,7 @@
 # Rust implementation guide
 
+**Rust 0.7 requires examiner review.** All newly generated AI reports are provisional. Read the report, enter the examiner score, and apply the 50:50 decision or a reasoned full human override before releasing `decision.final_percent`. See [HUMAN_REVIEW.md](HUMAN_REVIEW.md).
+
 Version 0.2.0 adds a real Rust program, the pinned RelSpec/AHAA compiler, and exactly two live API adapters: OpenAI and Anthropic Claude. The Python 0.1.1 prototype remains available for historical exercises and has a different protocol.
 
 The current release is 0.6.0. This guide explains the original grading workflow; the [research guide](RESEARCH_GUIDE.md) covers discovery and selection, the [evidence guide](EVIDENCE_GUIDE.md) covers source reviews and optional gates, and the [benchmark guide](BENCHMARK_GUIDE.md) and [API guide](API_GUIDE.md) cover experiments and application integration. New official scores are capped at 99.9; see [score policy](SCORE_POLICY.md) and the [checked proof example](PROOF_GUIDE.md). Older runs retain their original identities, score scale, and interpretation during replay.

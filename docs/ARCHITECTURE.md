@@ -1,5 +1,7 @@
 # Architecture
 
+**Current human-authority boundary:** AI aggregation and official grade release are separate. Rust 0.7 attaches a pending examiner decision to new reports; explicit human scoring and review are required before finalization. The host authenticates reviewers. See [HUMAN_REVIEW.md](HUMAN_REVIEW.md).
+
 ## Application and experiment interfaces
 
 Version 0.5 adds two callers of the same Rust grading core. The `benchmark` and `benchmark_runner` modules validate authored suites, execute bounded independent trials, and report errors against explicit expectations. The `service` module accepts a versioned request envelope independently of HTTP; `server` provides a bounded loopback adapter. The CLI and JavaScript client call these interfaces without introducing separate score arithmetic.

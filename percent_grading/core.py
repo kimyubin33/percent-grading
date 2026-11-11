@@ -143,10 +143,12 @@ def aggregate(case, evaluation):
         "lower_percent": 100 * (earned / total),
         "upper_percent": 100 * ((earned + unknown_weight) / total),
         "composite_percent": observed if status == "ready" else None,
+        "official_percent": None,
+        "human_review_status": "legacy_provisional_requires_current_rust_review",
         "critical_failures": failures,
         "critical_unresolved": unresolved,
         "criteria": [dict(c, judgment=rows[c["id"]]) for c in criteria],
-        "interpretation": "Rubric fulfillment; bounds cover abstentions only, not judge errors.",
+        "interpretation": "LEGACY TEACHING OUTPUT ONLY. All numeric profiles are provisional; no official grade is released. Use the current Rust workflow for mandatory examiner review: 50% examiner plus 50% AI, or an explicit 100% examiner override. Humans retain final assessment authority. Rubric fulfillment bounds cover abstentions only, not judge errors.",
     }
 
 

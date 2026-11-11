@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0 - 2026-11-12
+
+- Made examiner review mandatory for every new official grade. AI-only records remain provisional even when both models agree.
+- Added the fixed 50% examiner / 50% AI decision and an explicit 100% examiner override, with required grading method, rationale and review acknowledgements.
+- Preserved original AI judgments, prior examiner revisions and the 99.9 score ceiling; bound review forms to the precise answer, AI report and current decision.
+- Added readable offline HTML and Markdown review reports, criterion-specific explanations from both models, and a human-entered review form. Browser exports remain drafts until the trusted Rust host validates them.
+- Added CLI, JSON/HTTP API and JavaScript/TypeScript review operations. Current exports must use finalized `decision.final_percent`; AI profiles and cosmetic badges cannot release an official grade.
+- Preserved historical 0.2-0.6 replay formats without inventing examiner approval. The legacy Python teaching prototype now explicitly returns no official score.
+
+Human authority is an assessment decision right, not a guarantee of correctness. The host must authenticate and authorize reviewers, preserve records, apply fair cohort policies and provide review or appeal. No grading difference, style, gaze observation or experimental marker establishes AI use or misconduct.
+
 ## 0.6.0 - 2026-11-12
 
 - Added a primary-source analysis of historical essay, short-answer, and programming-grader limitations, with concrete defense mappings and remaining research questions.

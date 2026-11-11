@@ -1,5 +1,7 @@
 # Embedding Percent Grading in applications
 
+**Required since 0.7:** `current.percent` is provisional AI output. Only a validated finalized `decision.final_percent` may be released as an official grade. The examiner contributes 50% by default and can explicitly choose a 100% human override. See [HUMAN_REVIEW.md](HUMAN_REVIEW.md).
+
 Version 0.5 exposes the existing Rust engine through a versioned JSON service and a loopback HTTP adapter. A desktop application, native service, or web backend can use the same compilation, evidence, and scoring code as the CLI. The adapter is a local integration component, not a hosted multi-user grading product.
 
 ## Choose an integration boundary
@@ -164,3 +166,19 @@ Keep the full profile and review states when designing a UI. A `null` final perc
 New Rust 0.6 official grades and score bounds are capped at **99.9**. Coverage, benchmark accuracy, and raw anchor points retain their original units. An optional `celebration.display_percent` of **10,000** is cosmetic: never substitute it for the official score, and show its explanatory message. Capping can make unresolved interval endpoints equal; `status` and a `null` final score still require review. Historical saved runs retain their original scale. See [score policy](SCORE_POLICY.md).
 
 The host must authorize proof-challenge authors and freeze their approved mappings before accepting answers. The service validates hashes and formal entailment, not instructor identity, chronology, natural-language formalization, or novel discoveries. Gate policies likewise require host review; a hash binds a threshold choice without proving it was chosen before seeing results.
+
+## Examiner review operations (0.7)
+
+All three operations carry the exact `lock`, `answer`, and AI or previously reviewed `report`. The examiner remains a host-authorized person; a reviewer name in JSON is not authentication.
+
+| Operation | Additional payload | Result |
+|---|---|---|
+| `review_template` | None | `{review, notice}`; deliberately incomplete review with bindings to this report and current decision |
+| `review_report` | None | `{html, markdown, notice}`; readable explanations and review form |
+| `examiner_review` | `review` | `{report, notice}`; validated final decision and retained prior review history |
+
+A template requires the examiner's own score, `balanced` or `human_override` mode, grading basis, rationale, reviewer identifier, and both acknowledgment flags. The default is human 50% plus AI 50%; a full override is human 100% plus AI 0%. Preserve `expected_decision_hash` from the latest template; stale revisions are rejected. Balanced mode cannot turn an unresolved or blocked AI result into a numeric final grade.
+
+Existing `evaluate`, `grade`, and `proof_evaluate` operations return provisional AI reports with a pending examiner decision. An AI report's `status: "ready"` is not approval. Never rank, export, or display `current.percent` as an official 0.7 grade. Use only the finalized, validated `decision.final_percent`, preserving all human and AI explanations and warnings. A proof celebration has no official score while review is pending.
+
+The HTML page exports an untrusted review request; it does not finalize a grade in JavaScript. Submit that request to the Rust operation. Required input bindings and score validation remain effective in full-human mode. Hosts must authorize the reviewer, preserve records, and provide correction and appeal.

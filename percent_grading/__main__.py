@@ -10,7 +10,7 @@ from .core import ValidationError, aggregate, load_json, make_prompt
 def main(argv=None):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="Percent Grading: fixed-rubric requests and aggregation")
+    parser = argparse.ArgumentParser(description="Legacy teaching prototype: provisional profiles only. Official grades require the current Rust examiner-review workflow.")
     sub = parser.add_subparsers(dest="command", required=True)
     prompt = sub.add_parser("prompt", help="Print an evaluation request for an AI judge")
     prompt.add_argument("case")

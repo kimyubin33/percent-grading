@@ -131,7 +131,8 @@ fn proof_cli_verifies_the_certificate_and_keeps_celebration_outside_the_grade() 
     );
     assert_eq!(result["report"]["current"]["percent"], 99.9);
     assert_eq!(result["celebration"]["display_percent"], 10000);
-    assert_eq!(result["celebration"]["official_percent"], 99.9);
+    assert!(result["celebration"]["official_percent"].is_null());
+    assert!(result["report"]["decision"]["final_percent"].is_null());
     assert!(
         result["celebration"]["message"]
             .as_str()

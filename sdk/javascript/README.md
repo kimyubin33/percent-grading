@@ -3,7 +3,7 @@
 Dependency-free source client for the `percent-grading-api-v1` JSON service. This package is part of the repository and is not published to npm. Node.js 18 or later is supported through its built-in `fetch`; TypeScript declarations are included.
 
 ```javascript
-import { createClient, PercentGradingError } from "./index.mjs";
+import { createClient, officialPercent, PercentGradingError } from "./index.mjs";
 
 const client = createClient({
   baseUrl: "http://127.0.0.1:8787",
@@ -15,9 +15,11 @@ const prepared = await client.prompt({ lock, answer });
 
 The local token is a separate credential from `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`. Keep all credentials in native/backend processes. A web frontend should call its own authenticated backend; the Rust adapter rejects browser Origin headers and does not enable CORS.
 
-Convenience methods are `compile`, `prompt`, `evaluate`, `grade`, `proofPolicy`, `proofPrompt`, `proofEvaluate`, and `benchmarkGate`. `request(payload, options)` also supports the evidence operations documented in the [API guide](../../docs/API_GUIDE.md). `grade` requires the service to be started with live calls explicitly enabled and can incur provider charges. Proof and gate methods run offline.
+Convenience methods include `compile`, `prompt`, `evaluate`, `grade`, `proofPolicy`, `proofPrompt`, `proofEvaluate`, `benchmarkGate`, `reviewTemplate`, `reviewReport`, and `examinerReview`. `request(payload, options)` also supports the evidence operations documented in the [API guide](../../docs/API_GUIDE.md). `grade` requires explicit host permission and can incur provider charges; it produces a provisional AI report. Review, proof, and gate methods make no provider calls.
 
-Official score profiles in engine 0.6 are capped at 99.9%; coverage and raw anchor points still use 0..100. `proofEvaluate` returns an official `report` and a separate nullable `celebration`. Show the latter's explanatory message alongside its 10,000% display; never use that display in averages, rankings or persisted official grades. The finite propositional checker is not an arbitrary mathematics verifier, and imported judgments do not attest provider execution.
+**The examiner retains final authority.** Engine 0.7 requires an actual examiner score and documented review before releasing an official grade. The default is 50% examiner plus 50% AI; `human_override` applies 100% examiner weight. That weight does not mean a score of 100: the ceiling remains 99.9. `report.current.percent` is provisional AI output, even when its AI status is `ready`. Export only a finalized `report.decision.final_percent`; `officialPercent(report)` returns null for pending or legacy results and never falls back to the AI profile. It is a presentation helper, not cryptographic validation: the Rust service must validate records and the host must authorize reviewers.
+
+AI reasons can be wrong, biased, or incomplete. Read the answer, rubric, evidence and both models' reasons before making a decision. A proof celebration is cosmetic; it cannot finalize a grade or enter averages. The finite propositional checker is not an arbitrary mathematics verifier. See [human review](../../docs/HUMAN_REVIEW.md) for revision history, review obligations, and human autonomy.
 
 ```javascript
 const { policy } = await client.proofPolicy({ lock, source: challengeSource });
@@ -26,9 +28,12 @@ const certificatePrompt = await client.proofPrompt({ lock, policy, answer });
 const checked = await client.proofEvaluate({
   lock, policy, answer, certificate, openai: openaiJudgment, claude: claudeJudgment,
 });
-console.log("Official grade:", checked.report.current.percent);
+console.log("AI proposal:", checked.report.current.percent);
+console.log("Official grade (null until reviewed):", officialPercent(checked.report));
 if (checked.celebration) console.log(checked.celebration.message);
 ```
+
+Prepare an examiner form and readable HTML/Markdown with `reviewTemplate({lock, answer, report})` and `reviewReport({lock, answer, report})`. The template is intentionally invalid: its score and acknowledgements must be completed by the authorized examiner. Send the completed form as `examinerReview({lock, answer, report, review})`. Do not silently populate acknowledgements, copy the AI score into the examiner field, or add a frontend-only finalization path. Render HTML only in a trusted examiner context; it contains private answers and grading material. Revisions need a fresh template bound to the latest decision and preserve prior reviews.
 
 The host must approve and retain the challenge's mapping to the task before accepting answers. Do not let a student choose a simpler replacement challenge. Hash checks detect changes to a supplied lock; they do not authenticate instructor approval or establish the truth of natural-language claims.
 

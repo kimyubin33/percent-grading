@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Percent Grading — Examiner review</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#182025;background:#f6f7f8;line-height:1.6;color-scheme:light}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1160px;margin:auto;padding:28px}header{padding-bottom:12px}h1{font-size:clamp(27px,4vw,40px);line-height:1.15;margin:10px 0}h2{font-size:21px;margin-top:0}h3{font-size:17px;margin:0 0 8px}p{margin:8px 0 14px}.eyebrow{font-size:12px;letter-spacing:.13em;font-weight:750;text-transform:uppercase}.muted{color:#56636c;font-size:14px}.notice{border:2px solid #8d6620;background:#fff8e6;border-radius:12px;padding:18px;margin:18px 0}.notice strong{display:block;font-size:18px}.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:22px;align-items:start}.card{background:white;border:1px solid #dce1e5;border-radius:14px;padding:22px;margin-bottom:20px}.message{border-left:3px solid #667680;padding:2px 0 2px 16px;margin:18px 0}.provider{font-size:13px;font-weight:750;letter-spacing:.04em}.prose{white-space:pre-wrap;overflow-wrap:anywhere}.quote{background:#f3f5f6;padding:12px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}.tag{display:inline-block;padding:3px 9px;margin:0 6px 6px 0;border-radius:6px;background:#edf1f4;font-size:12px}.score{font-size:28px;font-weight:750}.score-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}.score-grid p{margin:0}.summary{border-top:1px solid #e1e6e9;padding-top:14px;margin-top:12px}label{display:block;font-weight:650;font-size:14px;margin:14px 0 6px}input:not([type=checkbox]),textarea,select{width:100%;font:inherit;padding:10px;border:1px solid #9da9b0;border-radius:7px;background:#fff;color:#182025}textarea{min-height:110px;resize:vertical}input[type=checkbox]{width:18px;height:18px;flex:none;margin-top:4px}.check{display:flex;gap:10px;font-size:13px;font-weight:400}.check span{display:block}button{border:0;border-radius:8px;background:#193d48;color:#fff;font:inherit;font-weight:650;padding:12px 16px;width:100%;margin:12px 0;cursor:pointer}button:disabled{background:#879399;cursor:not-allowed}.preview{background:#edf5f4;padding:12px;border-radius:8px;margin-top:16px}.error{color:#8a311f;font-size:13px;min-height:38px}code{font-family:ui-monospace,monospace;font-size:12px;overflow-wrap:anywhere}.hashes{font-size:12px}details{margin-top:18px}summary{cursor:pointer;font-weight:650}ul{padding-left:22px}footer{font-size:13px;color:#56636c;padding-top:0}a{color:#193d48}hr{border:0;border-top:1px solid #dce1e5;margin:20px 0}@media(max-width:850px){.layout{grid-template-columns:1fr}header,main,footer{padding:18px}.card{padding:18px}}@media print{body{background:#fff}.layout{display:block}#form-card{display:none}.card{break-inside:avoid}header,main,footer{padding:8px}.notice{border-color:#333}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">Percent Grading · Examiner workspace</div>
+<h1>Your judgment determines the final grade.</h1>
+<p>Read the two AI assessments, enter your own grade, and choose how to conclude the review.</p>
+<div class="notice" role="note"><strong>Human review is mandatory. AI is advisory.</strong>The normal final grade uses 50% of your score and 50% of the combined AI score. You may instead apply your own score with 100% weight and document your grading method and rationale. This changes the decision without erasing the original AI assessment.</div>
+</header>
+<main>
+<section class="card" aria-labelledby="decision-heading">
+<h2 id="decision-heading">Decision status</h2>
+<div id="decision-status" class="prose"></div>
+<div class="score-grid"><div><p class="muted">AI assessment · provisional component</p><div id="ai-score" class="score"></div></div><div><p class="muted">Recorded final grade · requires examiner review</p><div id="final-score" class="score"></div></div></div>
+<p id="recorded-mode" class="muted"></p>
+<p class="muted">A 100% examiner override means the weight of the human decision. The score ceiling remains 99.9%. A percentage measures rubric fulfillment, not the probability that an answer is true or that a person used AI.</p>
+</section>
+<div class="layout">
+<section aria-label="Read the assessment">
+<article class="card"><h2>Question and submitted answer</h2><h3>Question</h3><p id="question" class="prose"></p><h3>Declared context</h3><p id="context" class="prose"></p><h3>Student answer</h3><div id="answer" class="quote"></div><details><summary>Examiner reference</summary><p id="reference" class="prose"></p></details></article>
+<article class="card"><h2>Read the AI explanations</h2><p class="muted">Each explanation is a short, checkable justification supplied by the model. It can be wrong. A quotation shows what the answer said; it does not prove the claim. Model agreement does not establish truth.</p><div id="assessment-warnings"></div><div id="criteria"></div></article>
+<article class="card"><h2>Recorded human decisions</h2><p class="muted">The original AI assessment and earlier examiner decisions remain visible. A hash checks consistency; it does not authenticate an examiner's identity or certify fairness.</p><div id="history"></div></article>
+</section>
+<aside>
+<section id="form-card" class="card"><h2>Make your decision</h2><p class="muted">Your score is required in both modes. Explain your grading basis, especially when the AI followed an inappropriate interpretation.</p>
+<form id="review-form" novalidate>
+<label for="examiner-id">Examiner ID</label><input id="examiner-id" autocomplete="off" maxlength="64" placeholder="examiner_01">
+<label for="human-score">Your score (0–99.9)</label><input id="human-score" type="number" min="0" max="99.9" step="any" placeholder="Required; never inferred from AI">
+<label for="mode">Decision method</label><select id="mode"><option value="balanced">50% examiner + 50% combined AI</option><option value="human_override">100% examiner · override AI</option></select>
+<label for="grading-basis">Your grading method and interpretation</label><textarea id="grading-basis" placeholder="State which criteria, interpretation, and evidence you used."></textarea>
+<label for="rationale">Why is this the appropriate decision?</label><textarea id="rationale" placeholder="Explain your agreement or disagreement with the AI. Record relevant corrections and limitations."></textarea>
+<label class="check"><input id="reviewed" type="checkbox"><span>I have read the AI explanations, evidence, conditions, and disagreements for this answer.</span></label>
+<label class="check"><input id="acknowledged" type="checkbox"><span>I understand that AI can be wrong and that I am responsible for this grading decision. The result does not determine AI authorship or misconduct.</span></label>
+<div class="preview"><strong>Local preview only</strong><p id="preview">Complete your review to preview the result.</p></div>
+<p id="form-error" class="error" aria-live="polite"></p><button id="download" type="submit" disabled>Export examiner review JSON</button>
+</form>
+<p class="muted"><strong>Exporting does not finalize a grade.</strong> Submit the JSON to the authorized grading host using the <code>review</code> CLI command or <code>examiner_review</code> API operation. The host checks bindings and retained history. Browser edits never bypass that check.</p>
+</section>
+<section class="card"><h2>Before using the result</h2><ul><li>Check factual errors, missing context, and inappropriate grading assumptions.</li><li>Use consistent criteria and explain departures. Human authority can still be exercised incorrectly.</li><li>Provide a review or appeal route. Consider accommodations and assessment conditions.</li><li>Do not convert score differences, language style, gaze, or experimental markers into automatic misconduct accusations.</li><li>Keep student answers, references, and examiner records private.</li></ul><details><summary>Record bindings</summary><div id="bindings" class="hashes"></div></details></section>
+</aside>
+</div>
+</main>
+<footer>This self-contained file makes no network requests and contains no provider credentials. It contains private assessment material. Share only through the institution's authorized process.</footer>
+<script id="review-data" type="application/json">__REVIEW_DATA__</script>
+<script>__REVIEW_HELPERS__</script>
+<script>
+"use strict";
+const data = JSON.parse(document.getElementById("review-data").textContent);
+const $ = id => document.getElementById(id);
+const pct = value => typeof value === "number" ? `${Number(value.toFixed(4))}%` : "Not available";
+function node(tag, text, className) { const result = document.createElement(tag); if (text !== undefined) result.textContent = String(text); if (className) result.className = className; return result; }
+function paragraph(parent, label, text) { parent.append(node("h3", label), node("p", text, "prose")); }
+const report = data.report;
+const decision = report.decision;
+$("decision-status").textContent = decision?.status === "finalized" ? "An examiner decision has been recorded. Its authorship and authorization remain the host's responsibility." : "Awaiting examiner review — no final grade has been released.";
+$("ai-score").textContent = pct(report.current.percent);
+$("final-score").textContent = decision?.status === "finalized" ? pct(decision.final_percent) : "Pending";
+$("recorded-mode").textContent = decision?.status === "finalized" ? `Recorded weights: examiner ${decision.human_weight_percent}%, combined AI ${decision.ai_weight_percent}%.` : "The two AI providers together form one advisory component. They do not receive separate 50% shares.";
+for (const name of ["question", "context", "reference"]) $(name).textContent = data.contract[name];
+$("answer").textContent = data.answer;
+if (report.status !== "ready") $("assessment-warnings").append(node("p", "AI status: " + report.status + ". The 50:50 option cannot finalize this assessment. You may explicitly document a human override.", "notice"));
+for (const [label, values] of [["Disagreements", report.disagreements], ["Critical failures", report.critical_failures]]) { if (values.length) $("assessment-warnings").append(node("p", label + ": " + values.join(", "), "prose")); }
+for (const row of report.criteria) {
+  const criterion = data.contract.criteria.find(item => item.id === row.criterion_id);
+  const article = node("section", undefined, "summary");
+  article.append(node("h3", row.criterion_id));
+  for (const label of ["Dimension: " + row.dimension, "Status: " + row.status, "Weight: " + row.weight]) article.append(node("span", label, "tag"));
+  article.append(node("p", criterion?.description || "", "prose"));
+  article.append(node("p", row.awarded_points === null ? `Unresolved raw anchor range: ${row.lower_points}–${row.upper_points} / 100.` : `Agreed raw anchor points: ${row.awarded_points} / 100.`, "muted"));
+  if (row.dimension === "future") article.append(node("p", "Future exploration is separate from the current final grade; it is not a probability.", "muted"));
+  for (const [provider, key] of [["OpenAI", "openai"], ["Claude", "claude"]]) {
+    const judgment = row[key]; const message = node("div", undefined, "message");
+    message.append(node("div", provider, "provider"));
+    const anchor = criterion?.anchors.find(item => item.id === judgment.anchor_id);
+    message.append(node("p", "Selected anchor: " + judgment.anchor_id + (anchor ? " — " + anchor.description : ""), "muted"));
+    message.append(node("p", judgment.reason, "prose"));
+    if (!judgment.evidence.length) message.append(node("p", "No supporting excerpt was supplied.", "muted"));
+    for (const quote of judgment.evidence) message.append(node("blockquote", quote, "quote"));
+    if (judgment.conditions.length) paragraph(message, "Conditions and limitations", judgment.conditions.join("\n"));
+    article.append(message);
+  }
+  $("criteria").append(article);
+}
+const prior = decision?.history || [];
+const reviews = [...prior, ...(decision?.review ? [decision.review] : [])];
+if (!reviews.length) $("history").append(node("p", "No examiner decision has been recorded yet.", "muted"));
+reviews.forEach((review, index) => {
+  const item = node("section", undefined, "summary");
+  item.append(node("h3", `${index + 1}. ${review.examiner_id} · ${review.mode}`));
+  item.append(node("p", "Examiner score: " + pct(review.human_percent)));
+  paragraph(item, "Grading method", review.grading_basis); paragraph(item, "Decision rationale", review.rationale);
+  $("history").append(item);
+});
+for (const [label, value] of [["Contract", report.contract_hash], ["Answer", report.answer_hash], ["AI report", data.review_template?.report_hash], ["Current decision", decision?.decision_hash]]) { const item = node("p"); item.append(node("strong", label + ": "), node("code", value || "Unavailable")); $("bindings").append(item); }
+if (report.status !== "ready" || report.current.percent === null) { $("mode").options[0].disabled = true; const placeholder = node("option", "Choose an explicit examiner override"); placeholder.value = ""; $("mode").prepend(placeholder); $("mode").value = ""; }
+function input() { return {examiner_id: $("examiner-id").value, human_percent: $("human-score").value.trim() ? Number($("human-score").value) : NaN, mode: $("mode").value, grading_basis: $("grading-basis").value, rationale: $("rationale").value, reviewed_ai_report: $("reviewed").checked, acknowledged_ai_limits: $("acknowledged").checked}; }
+function refresh() { try { const value = ExaminerReviewForm.preview(input(), data.review_template, report); $("preview").textContent = pct(value) + " — provisional preview; host validation is still required."; $("form-error").textContent = ""; $("download").disabled = false; } catch (error) { $("preview").textContent = "Complete your review to preview the result."; $("form-error").textContent = error.message; $("download").disabled = true; } }
+$("review-form").addEventListener("input", refresh); $("review-form").addEventListener("change", refresh);
+$("review-form").addEventListener("submit", event => { event.preventDefault(); try { const review = ExaminerReviewForm.build(input(), data.review_template, report); const url = URL.createObjectURL(new Blob([JSON.stringify(review, null, 2) + "\n"], {type:"application/json"})); const link = node("a"); link.href = url; link.download = "examiner-review.json"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); $("form-error").textContent = "Review draft exported. Submit it to the authorized host to obtain a finalized report."; } catch (error) { $("form-error").textContent = error.message; $("download").disabled = true; } });
+refresh();
+</script>
+</body>
+</html>

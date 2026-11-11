@@ -7,12 +7,12 @@ The optional result is a **celebration**, not a higher official grade:
 ```json
 {
   "display_percent": 10000,
-  "official_percent": 99.9,
-  "message": "Grading overflow unlocked! 10,000% is a celebration badge. Your official score remains 99.9%. Verified only for this finite propositional challenge; this is not a software error or a general mathematical proof."
+  "official_percent": null,
+  "message": "Grading overflow unlocked! 10,000% is a celebration badge. The AI score is 99.9%; the official grade is pending examiner review. Verified only for this finite propositional challenge; this is not a software error or a general mathematical proof."
 }
 ```
 
-Applications should display the explanation alongside the badge and use `report.current.percent` for exports, ranking, and grade calculations. There is no integer overflow or intentional crash. A valid certificate can still return `celebration: null` when the ordinary grading result is incomplete or blocked.
+Starting with Rust 0.7, the badge does not approve a grade. Applications must display the review state alongside the badge and use only a validated finalized `report.decision.final_percent` for official exports, ranking, and grade calculations. `report.current.percent` is the provisional AI result; the examiner must supply their score and choose 50:50 review or full human override. See [HUMAN_REVIEW.md](HUMAN_REVIEW.md). There is no integer overflow or intentional crash. A valid certificate can still return `celebration: null` when the ordinary grading result is incomplete or blocked.
 
 ## Run the complete offline example
 
@@ -75,7 +75,7 @@ A certificate contains `format`, `policy_hash`, `answer_hash`, `answer_excerpt`,
 
 Rust checks the source-derived policy, its task binding, the answer hash, the exact formal assertion in the submitted answer, complete assignment coverage, and every calculated truth value. Unknown fields, duplicate or missing assignments, wrong task bindings, counterexamples, and inconsistent premises are rejected. The assertion's occurrence establishes a textual link; it does not prove that the surrounding natural-language explanation is sound.
 
-To return a celebration, the recomputed ordinary report must be ready, contain no disagreement or critical failure, and award **raw 100 on every current criterion**. Its official current score must be 99.9. Evidence gates remain effective. Future exploration cannot compensate for missing current credit. A raw score just below 100 that becomes 99.9 after capping is insufficient.
+To return a celebration, the recomputed ordinary report must be ready, contain no disagreement or critical failure, and award **raw 100 on every current criterion**. Its provisional AI current score must be 99.9; the official score remains pending until examiner review. Evidence gates remain effective. Future exploration cannot compensate for missing current credit. A raw score just below 100 that becomes 99.9 after capping is insufficient.
 
 The report and certificate remain separate: a complete truth table does not award missing explanation points, and two agreeing high-scoring judgments do not establish a formal entailment.
 

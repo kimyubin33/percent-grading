@@ -7,9 +7,11 @@ use crate::{
     benchmark_gate::{self, GatePolicy},
     contract::{self, LockedContract},
     evidence::{self, Dossier, EvidenceInput, EvidencePack, LockedEvidencePolicy, Review},
-    grading::{self, Judgment},
+    grading::{self, Judgment, Report},
+    human,
     proof::{self, Certificate, LockedProofPolicy},
     providers::{self, Provider},
+    review_view,
     runner::{self, RunConfig},
 };
 use serde::{Deserialize, Serialize};
@@ -47,6 +49,22 @@ pub struct Request {
 pub enum Operation {
     Compile {
         source: String,
+    },
+    ReviewTemplate {
+        lock: Box<LockedContract>,
+        answer: String,
+        report: Box<Report>,
+    },
+    ExaminerReview {
+        lock: Box<LockedContract>,
+        answer: String,
+        report: Box<Report>,
+        review: Box<human::ExaminerReview>,
+    },
+    ReviewReport {
+        lock: Box<LockedContract>,
+        answer: String,
+        report: Box<Report>,
     },
     ProofPolicy {
         lock: Box<LockedContract>,
@@ -178,6 +196,32 @@ fn validate<T>(value: Result<T, String>) -> Result<T, ApiError> {
 fn execute(context: &ServiceContext, operation: &Operation) -> Result<Value, ApiError> {
     match operation {
         Operation::Compile { source } => Ok(json!({"lock":validate(contract::compile(source))?})),
+        Operation::ReviewTemplate {
+            lock,
+            answer,
+            report,
+        } => Ok(json!({
+            "review":validate(human::template(lock,answer,report))?,
+            "notice":"An examiner must independently supply a score, grading basis and rationale after reading the AI report. This unsubmitted template is not an approved grade."
+        })),
+        Operation::ExaminerReview {
+            lock,
+            answer,
+            report,
+            review,
+        } => Ok(json!({
+            "report":validate(human::review(lock,answer,report,review))?,
+            "notice":"The examiner retains final authority. Balanced review uses 50% examiner and 50% AI; an explicit human override uses 100% examiner. The original AI record remains visible. This supplied examiner declaration does not authenticate the examiner's identity or establish objective truth."
+        })),
+        Operation::ReviewReport {
+            lock,
+            answer,
+            report,
+        } => Ok(json!({
+            "html":validate(review_view::render(lock,answer,report))?,
+            "markdown":validate(review_view::markdown(lock,answer,report))?,
+            "notice":"Private examiner report. AI explanations are supplied justifications, not proof or private internal reasoning. A draft exported by the page must be submitted to examiner_review before it becomes a final grade."
+        })),
         Operation::ProofPolicy { lock, source } => {
             Ok(json!({"policy":validate(proof::compile_policy(lock, source))?}))
         }
@@ -392,6 +436,183 @@ mod tests {
             request_id: "test-1".into(),
             payload,
         }
+    }
+
+    fn examiner_fixture() -> (LockedContract, String, Report) {
+        let lock = contract::compile(include_str!("../policies/apple.aha")).unwrap();
+        let answer =
+            "Synthetic protocol fixture; these are manually authored judgments.".to_owned();
+        let judgment = Judgment {
+            contract_hash: lock.contract_hash.clone(),
+            answer_hash: contract::hash(answer.as_bytes()),
+            judgments: lock
+                .contract
+                .criteria
+                .iter()
+                .map(|c| grading::Row {
+                    criterion_id: c.id.clone(),
+                    anchor_id: c
+                        .anchors
+                        .iter()
+                        .find(|a| a.points == 100)
+                        .unwrap()
+                        .id
+                        .clone(),
+                    evidence: vec![answer.clone()],
+                    reason: "A manually authored API test fixture, not a factual claim.".into(),
+                    conditions: vec![],
+                })
+                .collect(),
+        };
+        let result = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::Evaluate {
+                lock: Box::new(lock.clone()),
+                answer: answer.clone(),
+                openai: Box::new(judgment.clone()),
+                claude: Box::new(judgment),
+                evidence: None,
+            }),
+        );
+        let report = serde_json::from_value(result.result.unwrap()["report"].clone()).unwrap();
+        (lock, answer, report)
+    }
+
+    #[test]
+    fn official_score_requires_explicit_examiner_input_and_supports_fifty_fifty() {
+        let (lock, answer, report) = examiner_fixture();
+        assert_eq!(report.status, "ready");
+        let decision = report.decision.as_ref().unwrap();
+        assert_eq!(decision.status, "awaiting_examiner");
+        assert!(decision.final_percent.is_none());
+        let template = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ReviewTemplate {
+                lock: Box::new(lock.clone()),
+                answer: answer.clone(),
+                report: Box::new(report.clone()),
+            }),
+        );
+        let mut review: human::ExaminerReview =
+            serde_json::from_value(template.result.unwrap()["review"].clone()).unwrap();
+        assert!(!review.reviewed_ai_report);
+        assert!(!review.acknowledged_ai_limits);
+        assert!(review.human_percent < 0.0);
+        let unsubmitted = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ExaminerReview {
+                lock: Box::new(lock.clone()),
+                answer: answer.clone(),
+                report: Box::new(report.clone()),
+                review: Box::new(review.clone()),
+            }),
+        );
+        assert_eq!(unsubmitted.http_status(), 422);
+        review.examiner_id = "examiner_01".into();
+        review.human_percent = 80.0;
+        review.grading_basis = "Apply the announced rubric to the demonstrated explanation.".into();
+        review.rationale="The examiner awards partial credit for the reasoning while retaining the AI comparison.".into();
+        review.reviewed_ai_report = true;
+        review.acknowledged_ai_limits = true;
+        let accepted = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ExaminerReview {
+                lock: Box::new(lock),
+                answer,
+                report: Box::new(report),
+                review: Box::new(review),
+            }),
+        );
+        assert!(accepted.error.is_none());
+        let result = accepted.result.unwrap();
+        assert!(
+            (result["report"]["decision"]["final_percent"]
+                .as_f64()
+                .unwrap()
+                - 89.95)
+                .abs()
+                < 1e-9
+        );
+        assert_eq!(result["report"]["decision"]["human_weight_percent"], 50);
+        assert_eq!(result["report"]["decision"]["ai_weight_percent"], 50);
+        assert_eq!(result["report"]["current"]["percent"], 99.9);
+    }
+
+    #[test]
+    fn examiner_override_keeps_ai_record_and_rejects_stale_or_mismatched_review() {
+        let (lock, answer, report) = examiner_fixture();
+        let mut review = human::template(&lock, &answer, &report).unwrap();
+        review.examiner_id = "examiner_01".into();
+        review.human_percent = 42.0;
+        review.mode = human::ReviewMode::HumanOverride;
+        review.grading_basis =
+            "The examiner applies the intended interpretation and checks all claims.".into();
+        review.rationale =
+            "The AI assessed a different question. Use this examiner assessment in full.".into();
+        review.reviewed_ai_report = true;
+        review.acknowledged_ai_limits = true;
+        let result = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ExaminerReview {
+                lock: Box::new(lock.clone()),
+                answer: answer.clone(),
+                report: Box::new(report.clone()),
+                review: Box::new(review.clone()),
+            }),
+        )
+        .result
+        .unwrap();
+        assert_eq!(result["report"]["decision"]["final_percent"], 42.0);
+        assert_eq!(result["report"]["decision"]["human_weight_percent"], 100);
+        assert_eq!(result["report"]["decision"]["ai_weight_percent"], 0);
+        assert_eq!(
+            result["report"]["criteria"],
+            serde_json::to_value(&report.criteria).unwrap()
+        );
+        let reviewed = serde_json::from_value(result["report"].clone()).unwrap();
+        let stale = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ExaminerReview {
+                lock: Box::new(lock.clone()),
+                answer: answer.clone(),
+                report: Box::new(reviewed),
+                review: Box::new(review.clone()),
+            }),
+        );
+        assert_eq!(stale.http_status(), 422);
+        let different = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ExaminerReview {
+                lock: Box::new(lock),
+                answer: answer + " changed",
+                report: Box::new(report),
+                review: Box::new(review),
+            }),
+        );
+        assert_eq!(different.http_status(), 422);
+    }
+
+    #[test]
+    fn readable_review_report_keeps_pending_grade_and_does_not_call_providers() {
+        let (lock, answer, report) = examiner_fixture();
+        let response = dispatch(
+            &ServiceContext::default(),
+            &request(Operation::ReviewReport {
+                lock: Box::new(lock),
+                answer,
+                report: Box::new(report),
+            }),
+        );
+        assert!(response.error.is_none());
+        let result = response.result.unwrap();
+        assert!(
+            result["html"]
+                .as_str()
+                .unwrap()
+                .to_ascii_lowercase()
+                .starts_with("<!doctype html>")
+        );
+        assert!(result["markdown"].as_str().unwrap().contains("examiner"));
     }
 
     #[test]

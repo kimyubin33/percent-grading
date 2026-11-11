@@ -165,7 +165,10 @@ pub fn replay(dir: &Path) -> Result<Value, String> {
     // 0.5 and 0.6 leave the 0.4 evidence prompt, schema, and aggregation
     // unchanged. Preserve old audit identities independently of score ceilings.
     // The full comparison below still rejects any prompt or input mismatch.
-    if matches!(snapshot.identity.engine_version.as_str(), "0.4.0" | "0.5.0") {
+    if matches!(
+        snapshot.identity.engine_version.as_str(),
+        "0.4.0" | "0.5.0" | "0.6.0"
+    ) {
         expected.engine_version = snapshot.identity.engine_version.clone();
     }
     if !equal(&expected, &snapshot.identity)? {

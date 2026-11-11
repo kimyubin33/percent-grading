@@ -1,5 +1,7 @@
 # Scoring rules
 
+**Historical teaching formulas:** this page describes the Python prototype. Rust 0.7 requires the examiner's score and explicit 50:50 review or 100% human override before any official grade. Do not use historical raw scores to bypass [HUMAN_REVIEW.md](HUMAN_REVIEW.md).
+
 For positive weights w_i and scores s_i in [0,1], let K contain scored criteria, W be total weight, W_K scored weight, and E the sum of w_i*s_i over K.
 
 - coverage = W_K / W.

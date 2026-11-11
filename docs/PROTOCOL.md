@@ -1,5 +1,7 @@
 # Input contract
 
+**Historical teaching protocol:** this page describes the retained Python prototype. Its raw outputs are not official grades under the current required examiner-review policy. Use Rust 0.7 and [HUMAN_REVIEW.md](HUMAN_REVIEW.md) for consequential grade release.
+
 ## Case
 
 Required nonempty strings: case_id, rubric_version, question, answer, reference. policy.coverage_min is a number in [0,1]. criteria is a nonempty array.

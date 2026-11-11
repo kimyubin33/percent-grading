@@ -1,10 +1,20 @@
 # Percent Grading
 
+## The examiner has the final decision
+
+**Required in 0.7: every official grade includes the examiner's own assessment.** By default, the final current-task grade is **50% examiner score + 50% AI score**. The AI score is the existing reconciled OpenAI/Claude result, not two additional equal votes.
+
+**The examiner may instead apply their own grading basis and score 100%.** This is `human_override`: AI contributes 0%, and the examiner records the reason. The original AI evaluation and prior human reviews remain visible. “100% human” is a weight; the score ceiling stays 99.9.
+
+Read the AI's criterion-by-criterion reasons, evidence, conditions, and disagreements in a standalone HTML or Markdown review report. Then enter the human score and rationale and explicitly finalize it. `report.current.percent` is provisional AI output; only a validated, finalized `report.decision.final_percent` is an official result. An AI-only report cannot be released as an approved grade.
+
+**Important:** AI and humans can both be wrong. Human authority changes an assessment decision, not factual truth. Explain changes, apply standards consistently, and provide correction and appeal. No score, style signal, or model agreement proves misconduct. Reviewer identity and permissions must be enforced by the host application. Read the [required human-review guide and warnings](docs/HUMAN_REVIEW.md).
+
 **Recognize valid reasoning without hiding an unsupported conclusion.**
 
 [English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Evidence guide](docs/EVIDENCE_GUIDE.md) | [Benchmarks](docs/BENCHMARK_GUIDE.md) | [Application API](docs/API_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.6.0**, with the Python 0.1.1 teaching prototype retained.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.7.0**, with the Python 0.1.1 teaching prototype retained.
 
 New in 0.6: [lessons from historical automated grading](docs/HISTORICAL_FAILURES.md), an adversarial regression gate, a [99.9 official score ceiling](docs/SCORE_POLICY.md), and a [checked proof Easter egg](docs/PROOF_GUIDE.md). The optional **10,000%** badge is a separate celebration display; it never changes the official grade.
 
@@ -25,7 +35,9 @@ Human grading already includes partial credit and analytic rubrics. Percent Grad
 3. Ask **OpenAI and Claude only** to choose predefined anchors and cite exact answer excerpts.
 4. Reject invented criteria, anchors, numerical score fields, or unsupported quotations.
 5. Accept a criterion only when the two validated judgments agree on its anchor.
-6. Calculate fixed points, preserve disagreements, and save a replayable audit record.
+6. Calculate provisional AI points, preserve disagreements, and save a replayable audit record.
+7. Require the examiner to read the explanation, supply their own score and reasons, and choose 50:50 review or full human override.
+8. Release only the validated human decision; preserve the original AI result and review history.
 
 The models classify evidence. **Rust controls the permitted points and the arithmetic.** This does not force the models to interpret language identically: disagreement produces review, rather than a hidden average. A saved run can be replayed without making another model call.
 
@@ -133,7 +145,7 @@ Version 0.6 adds a separate **24-case adversarial corpus**, frozen benchmark gat
 
 New Rust grades cap the weighted percentage at **99.9**, while raw criterion anchors and coverage retain their existing 0–100 units. The cap is a product convention, not a probability of truth. Earlier saved runs retain their original scoring semantics during replay.
 
-A task author may lock a small propositional-logic proof challenge through RelSpec. A submitted certificate must cover every assignment of the declared Boolean variables; Rust independently recomputes every row. If the certificate passes and the answer has full, settled current-task anchors with no blocking state, `proof-evaluate` returns a separate **10,000%** celebration with an explanatory message. The official grade remains **99.9**.
+A task author may lock a small propositional-logic proof challenge through RelSpec. A submitted certificate must cover every assignment of the declared Boolean variables; Rust independently recomputes every row. If the certificate passes and the answer has full, settled current-task anchors with no blocking state, `proof-evaluate` returns a separate **10,000%** celebration with an explanatory message. The AI result remains **99.9**, while the official grade remains pending until the examiner review is applied.
 
 An AI can help prepare a certificate, but claiming a proof, mentioning Fermat, or supplying two agreeing model opinions does not trigger this feature. The first checker supports only bounded propositional logic, not arbitrary mathematics, novelty, or real-world truth. Follow the runnable [proof guide](docs/PROOF_GUIDE.md).
 
@@ -157,6 +169,7 @@ The guide explains local records, replay, offline judgment evaluation, and failu
 
 | Capability | Status |
 |---|---|
+| Required examiner score, 50:50 review, full human override, and readable review reports | Implemented in 0.7; host authenticates reviewers |
 | Rust CLI and real RelSpec/AHAA compilation | Implemented |
 | Strict contract, fixed anchors, and content identity | Implemented |
 | OpenAI Responses and Claude Messages adapters | Implemented |
@@ -189,7 +202,7 @@ The adapters require compatible model access and credentials for live use. Offli
 - [Roadmap](docs/ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 
-The Python files and their [scoring](docs/SCORING.md) and [protocol](docs/PROTOCOL.md) documents describe the retained 0.1.1 prototype. They use a different input format; Rust does not silently accept Python judgment files.
+The Python files and their [scoring](docs/SCORING.md) and [protocol](docs/PROTOCOL.md) documents describe the retained 0.1.1 prototype. They use a different input format; Rust does not silently accept Python judgment files. They are historical teaching material, not a shortcut around required examiner review for official grades.
 
 ## Intended benefits and research principles
 

@@ -81,7 +81,8 @@ pub struct VerifiedProof {
 #[serde(deny_unknown_fields)]
 pub struct Celebration {
     pub display_percent: u32,
-    pub official_percent: f64,
+    /// A cosmetic proof badge cannot finalize an unreviewed AI assessment.
+    pub official_percent: Option<f64>,
     pub message: String,
 }
 
@@ -588,8 +589,8 @@ pub fn evaluate(
             .all(|r| r.status == "agreed" && r.awarded_points == Some(100));
     let celebration = eligible.then(|| Celebration {
         display_percent: 10_000,
-        official_percent: grading::MAX_OFFICIAL_PERCENT,
-        message: "Grading overflow unlocked! 10,000% is a celebration badge. Your official score remains 99.9%. Verified only for this finite propositional challenge; this is not a software error or a general mathematical proof.".into(),
+        official_percent: report.decision.as_ref().and_then(|d|d.final_percent),
+        message: "Grading overflow unlocked! 10,000% is a celebration badge, not a grade. The AI assessment is provisional and the official score requires examiner review. The examiner retains final authority and may apply a documented 100% human override. Verified only for this finite propositional challenge; this is not a software error or a general mathematical proof.".into(),
     });
     Ok(ProofResult {
         origin: "imported_judgments_and_certificate".into(),
@@ -675,7 +676,9 @@ mod tests {
         assert_eq!(result.report.criteria[0].awarded_points, Some(100));
         let badge = result.celebration.unwrap();
         assert_eq!(badge.display_percent, 10_000);
-        assert_eq!(badge.official_percent, 99.9);
+        assert_eq!(badge.official_percent, None);
+        assert_eq!(result.report.decision.as_ref().unwrap().final_percent, None);
+        assert!(badge.message.contains("requires examiner review"));
         assert!(badge.message.contains("not a software error"));
         assert!(
             result
