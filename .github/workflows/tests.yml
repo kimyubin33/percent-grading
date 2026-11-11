@@ -17,6 +17,13 @@ jobs:
       - run: cargo run --locked -- compile policies/apple.aha --out local-runs/apple.lock.json
       - run: cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-blue.fixture.json
       - run: cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-disagreement.fixture.json
+      - run: cargo run --locked -- select local-runs/apple.lock.json catalogs/apple.json --out local-runs/apple.research.json
+      - run: cargo run --locked -- inspect-research local-runs/apple.lock.json local-runs/apple.research.json
+      - run: cargo run --locked -- prompt local-runs/apple.lock.json examples/rust/apple-blue.txt --research local-runs/apple.research.json
+      - name: Public Crossref connectivity smoke check
+        if: matrix.os == 'ubuntu-latest'
+        continue-on-error: true
+        run: cargo run --locked -- discover local-runs/apple.lock.json --query "surface reflectance color illumination" --rows 3 --timeout-seconds 20 --out local-runs/crossref-smoke.json
   test:
     runs-on: ubuntu-latest
     strategy:

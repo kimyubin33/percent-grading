@@ -2,9 +2,9 @@
 
 **Recognize valid reasoning without hiding an unsupported conclusion.**
 
-[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.2.0**, with the Python 0.1.1 teaching prototype retained.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.3.0**, with the Python 0.1.1 teaching prototype retained.
 
 ## Why this project began
 
@@ -49,7 +49,7 @@ The current-task score measures fulfillment of the declared intent, principle, r
 
 These are rubric scores, not probabilities of truth or forecasts of future success. Disagreement and unresolved criteria produce bounded reports. Their bounds describe the scoring policy, not statistical confidence intervals or protection against errors shared by both models.
 
-Perspectives inform fixed criteria. Adding many overlapping theories does not multiply the available credit. The program supports declared perspectives; automatic discovery of thousands of theories remains future work.
+Perspectives inform fixed criteria. Adding many overlapping theories does not multiply the available credit. The program automatically selects from a declared catalog and can search Crossref for bibliographic candidates. It does not turn search titles into validated theories or claim exhaustive coverage of all possible perspectives.
 
 ## Quick start without API keys
 
@@ -66,6 +66,26 @@ The compile command creates a new lock file and refuses to overwrite an existing
 
 The demo uses **manually authored fixture judgments**, not real AI output. Red, future-scenario, and disagreement fixtures are also included. See the [Rust guide](docs/RUST_GUIDE.md) for their commands and the output interpretation.
 
+## Discover and select research context
+
+Select perspectives without API keys or network access:
+
+```text
+cargo run --locked -- select local-runs/apple.lock.json catalogs/apple.json --out local-runs/apple.research.json
+cargo run --locked -- inspect-research local-runs/apple.lock.json local-runs/apple.research.json
+cargo run --locked -- prompt local-runs/apple.lock.json examples/rust/apple-blue.txt --research local-runs/apple.research.json
+```
+
+Selection uses the fixed task, not the learner's answer. It records keyword matches, mapped criteria, overlap exclusions, and coverage while bounding the selected context. The catalog snapshot and selection configuration are frozen into a verifiable research pack. The bundled catalog has eight entries; the implementation supports larger catalogs within documented limits.
+
+For optional online bibliographic discovery:
+
+```text
+cargo run --locked -- discover local-runs/apple.lock.json --query "surface reflectance illuminant color perception" --rows 10 --out local-runs/apple.search.json
+```
+
+This sends the query to Crossref, not to another AI model. Results are publication metadata to inspect before curating new catalog entries. They are not scientific conclusions or automatic additions to the rubric. See the [research guide](docs/RESEARCH_GUIDE.md) for source requirements, selection limits, and the distinction between discovery and evidence.
+
 ## Live OpenAI and Claude evaluation
 
 Configure `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in your environment, then provide model IDs supported by your accounts:
@@ -73,6 +93,8 @@ Configure `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in your environment, then pro
 ```text
 cargo run --locked -- grade local-runs/apple.lock.json examples/rust/apple-blue.txt --openai-model YOUR_OPENAI_MODEL --claude-model YOUR_CLAUDE_MODEL
 ```
+
+Add `--research local-runs/apple.research.json` to supply the same frozen selection to both judges. It becomes part of the recorded run identity without changing the contract's scoring rules.
 
 A live grade calls both providers and may incur API charges. A ChatGPT subscription does not supply API access. No third provider or arbitrary API endpoint is supported. Request attempts, timeouts, output tokens, and response sizes are bounded; these limits are not a fixed monetary budget.
 
@@ -88,7 +110,9 @@ The guide explains local records, replay, offline judgment evaluation, and failu
 | Two-judge reconciliation and exact quotation checks | Implemented |
 | Separate present and future profiles | Implemented |
 | Saved run replay and offline fixtures | Implemented |
-| Large-scale theory retrieval and selection | Planned |
+| Answer-independent catalog selection, overlap control, and frozen research context | Implemented |
+| Crossref bibliographic discovery | Implemented; metadata only |
+| Automatic verification of theories or exhaustive semantic discovery | Not implemented |
 | Empirical advantage over existing grading | Not established |
 
 The adapters require compatible model access and credentials for live use. Offline tests establish specified software behavior; they do not establish model accuracy or educational validity.
@@ -96,7 +120,8 @@ The adapters require compatible model access and credentials for live use. Offli
 ## Read and contribute
 
 - [Rust guide: contract, CLI, API setup, and audit records](docs/RUST_GUIDE.md)
-- [English textbook, including the Rust chapter](book/Percent-Grading-Textbook.md)
+- [Research guide: discovery, catalogs, and frozen selection](docs/RESEARCH_GUIDE.md)
+- [English textbook, including the Rust and research-selection chapters](book/Percent-Grading-Textbook.md)
 - [Architecture and trust boundaries](docs/ARCHITECTURE.md)
 - [Experimental validation](docs/EXPERIMENTS.md)
 - [Related work](docs/RELATED_WORK.md)

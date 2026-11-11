@@ -50,7 +50,9 @@ Every future claim should name what would need to change and what evidence could
 
 A perspective is a declared way to inspect a criterion. Relevant lenses can include perception, surface reflectance, causal reasoning, or experimental design. Their sources and assumptions belong in the contract and audit trail. The same answer is still evaluated against the fixed criteria.
 
-Adding ten descriptions of the same physical mechanism does not create ten new shares of the grade. The implementation does not claim to retrieve all theories or to have searched thousands of them. Automated retrieval, relevance estimation, and empirical tests of broader perspective coverage remain future research.
+Adding ten descriptions of the same physical mechanism does not create ten new shares of the grade. Version 0.3 selects bounded context from a sourced catalog using answer-independent keyword matching. It suppresses declared overlap groups and exact duplicate content, reports omitted records and coverage gaps, and freezes the selection into the run identity. The selector supports catalogs of up to 10,000 entries; this capacity is not evidence that 10,000 real theories have been curated or validated.
+
+The discovery adapter queries Crossref for bibliographic candidates. It never promotes a title or DOI into a verified scientific claim. A curator must inspect the underlying source before creating a catalog entry. Only selected catalog context reaches the two AI judges; the full catalog remains in the local audit snapshot. See the [research guide](RESEARCH_GUIDE.md) for the workflow and limits.
 
 ## Trust boundaries
 
@@ -62,6 +64,6 @@ Saved reports may contain the original question and answer, quotations, and prov
 
 ## Version boundaries
 
-The Python 0.1.1 implementation remains available as a historical prototype. It accepts manually supplied numerical judgments under its own JSON protocol. Rust 0.2.0 introduces the stricter anchor protocol and two-provider workflow. Neither protocol silently substitutes for the other.
+The Python 0.1.1 implementation remains available as a historical prototype. It accepts manually supplied numerical judgments under its own JSON protocol. Rust 0.2.0 introduced the stricter anchor protocol and two-provider workflow. Rust 0.3.0 adds optional research context while preserving the scoring rules. It can replay 0.2 records without changing their original identities or reports. Neither Rust protocol silently accepts Python judgment files.
 
 See [the Rust guide](RUST_GUIDE.md) for the executable contract, commands, and current file formats.

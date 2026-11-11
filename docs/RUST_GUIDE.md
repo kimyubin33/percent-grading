@@ -190,6 +190,6 @@ Treat saved records as sensitive when they contain private answers. They can con
 
 Tests cover contract structure, reference integrity, anchor membership, evidence checks, disagreements, critical failures, future separation, provider request/response handling, and replay behavior. Test fixtures do not make paid model calls.
 
-The language checker cannot establish scientific truth in a free-text anchor. Two providers can agree on the same mistake. Prompt instructions and JSON validation cannot prove resistance to every injection attempt. The current program does not automatically retrieve theories or adjudicate a genuine disagreement. These limits are explicit so the next experiments can measure them.
+The language checker cannot establish scientific truth in a free-text anchor. Two providers can agree on the same mistake. Prompt instructions and JSON validation cannot prove resistance to every injection attempt. Version 0.3 adds bibliographic discovery and automatic selection from declared catalogs, described in the [research guide](RESEARCH_GUIDE.md). It does not automatically verify scientific claims or adjudicate a genuine disagreement. These limits are explicit so the next experiments can measure them.
 
 For the design rationale, read [Architecture](ARCHITECTURE.md) and [textbook chapter 14](../book/Percent-Grading-Textbook.md#14-a-strict-language-contract-and-two-ai-judges). For planned validation, read [Experiments](EXPERIMENTS.md) and [Roadmap](ROADMAP.md).

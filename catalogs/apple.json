@@ -1,0 +1,126 @@
+{
+  "schema_version": "percent-grading-catalog-v1",
+  "version": "0.3.0-apple-example-1",
+  "sources": [
+    {
+      "id": "nasa-color",
+      "title": "The Science of Color",
+      "url": "https://www.jpl.nasa.gov/edu/resources/lesson-plan/the-science-of-color/",
+      "excerpt": "Curator paraphrase: Under white illumination, an object's appearance depends on which wavelengths reach the observer after reflection and absorption. Color filters can alter the light reaching the observer and make some objects darker."
+    },
+    {
+      "id": "iop-illumination",
+      "title": "Colours of two kinds - Teaching and learning issues",
+      "url": "https://spark.iop.org/collections/colours-two-kinds-teaching-and-learning-issues",
+      "excerpt": "Curator paraphrase: Apparent color depends on both surface pigments and incident illumination. A red surface under blue illumination need not appear blue; it can appear dark."
+    },
+    {
+      "id": "nasa-visible",
+      "title": "Spectroscopy 101 - Light and Matter",
+      "url": "https://science.nasa.gov/mission/webb/science-overview/science-explainers/spectroscopy-101-light-and-matter/",
+      "excerpt": "Curator paraphrase: Human vision detects a limited wavelength range. Within that visible range, shorter wavelengths are associated with bluer light and longer wavelengths with redder light."
+    },
+    {
+      "id": "project-methods",
+      "title": "Percent Grading Rust contract guide",
+      "url": "https://github.com/kimyubin33/percent-grading/blob/main/docs/RUST_GUIDE.md",
+      "excerpt": "Project-proposed method: Check the task's declared context before interpreting an answer. Distinguish a valid general principle from whether its application supports this conclusion. Evaluate a future proposal as a separate testable hypothesis rather than a present fact."
+    },
+    {
+      "id": "nasa-orbits",
+      "title": "Orbits and Kepler's Laws",
+      "url": "https://science.nasa.gov/solar-system/orbits-and-keplers-laws/",
+      "excerpt": "Curator paraphrase: Kepler's first law describes a planet's orbit as an ellipse with the Sun at one focus. This orbital model is not evidence about an apple's apparent color."
+    }
+  ],
+  "perspectives": [
+    {
+      "id": "reflectance-a",
+      "name": "Selective surface reflection and absorption",
+      "kind": "established",
+      "description": "Inspect whether the explanation distinguishes the illumination from the wavelengths reflected or absorbed by the surface.",
+      "assumptions": ["The task concerns ordinary visible light and a non-emitting surface.", "The task's stated specimen and illumination remain fixed."],
+      "keywords": ["illumination", "surface", "reflection", "absorption", "optical", "light"],
+      "dimensions": ["principle", "reasoning"],
+      "source_ids": ["nasa-color"],
+      "overlap": "surface-spectrum"
+    },
+    {
+      "id": "reflectance-b",
+      "name": "Duplicate surface-spectrum teaching lens",
+      "kind": "established",
+      "description": "This deliberately overlapping example restates the same reflection and absorption mechanism. It must not receive a second independent vote or increase criterion weight.",
+      "assumptions": ["The task concerns ordinary visible light and a non-emitting surface.", "This entry intentionally overlaps reflectance-a for a duplication test."],
+      "keywords": ["illumination", "surface", "reflection", "absorption", "optical", "light"],
+      "dimensions": ["principle", "reasoning"],
+      "source_ids": ["nasa-color"],
+      "overlap": "surface-spectrum"
+    },
+    {
+      "id": "illumination-conditions",
+      "name": "Illuminant and surface compatibility",
+      "kind": "established",
+      "description": "Check whether an alternative apparent color is consistent with both the incident spectrum and the surface response. Naming a different light source alone is insufficient.",
+      "assumptions": ["A changed illuminant is a conditional scenario unless the task explicitly allows it.", "Blue illumination does not guarantee that a red surface appears blue."],
+      "keywords": ["illumination", "surface", "conditions", "white", "red", "blue"],
+      "dimensions": ["conditions", "reasoning"],
+      "source_ids": ["iop-illumination"],
+      "overlap": "illuminant-compatibility"
+    },
+    {
+      "id": "observer-range",
+      "name": "Visible wavelength and observer scope",
+      "kind": "established",
+      "description": "Keep claims about human apparent color within the declared observer and visible-light setting. A measurement outside that setting is a different observation condition.",
+      "assumptions": ["The task declares an ordinary human observer with typical color vision.", "A wavelength explanation does not by itself determine an entire surface spectrum."],
+      "keywords": ["human", "observer", "visible", "wavelength", "perception"],
+      "dimensions": ["principle", "conditions"],
+      "source_ids": ["nasa-visible"],
+      "overlap": "observer-scope"
+    },
+    {
+      "id": "task-scope",
+      "name": "Declared task and specimen",
+      "kind": "method",
+      "description": "Compare the present conclusion with the explicitly stated specimen and context. Do not substitute an imagined different apple for the one described in the task.",
+      "assumptions": ["The rubric and task were fixed before inspecting an answer.", "Equivalent wording may satisfy the same anchor."],
+      "keywords": ["specified", "specimen", "present", "conditions", "color"],
+      "dimensions": ["intent", "conditions"],
+      "source_ids": ["project-methods"],
+      "overlap": "task-alignment"
+    },
+    {
+      "id": "causal-application",
+      "name": "Principle-to-conclusion connection",
+      "kind": "method",
+      "description": "Separate recognition of a valid principle from whether the answer connects that principle to its particular conclusion without changing assumptions.",
+      "assumptions": ["Credit is limited to what the answer demonstrates.", "A correct premise does not validate every conclusion that follows it in prose."],
+      "keywords": ["principle", "conclusion", "explain", "optical", "connect"],
+      "dimensions": ["reasoning"],
+      "source_ids": ["project-methods"],
+      "overlap": "causal-application"
+    },
+    {
+      "id": "future-intervention",
+      "name": "Testable future surface intervention",
+      "kind": "hypothesis",
+      "description": "Explore an explicitly proposed surface or imaging change by asking for a plausible mechanism and an observation that could test the proposal. This is a project hypothesis lens, not evidence that the intervention has occurred or will succeed.",
+      "assumptions": ["The intervention is conditional and does not replace the present task's fixed conditions.", "Future credit measures proposal quality rather than event probability."],
+      "keywords": ["future", "testable", "change", "coating", "hypothesis", "proposal"],
+      "dimensions": ["future"],
+      "source_ids": ["project-methods", "nasa-color"],
+      "overlap": "future-design"
+    },
+    {
+      "id": "orbital-motion",
+      "name": "Keplerian orbital geometry - irrelevant control",
+      "kind": "established",
+      "description": "Describe planetary orbital geometry. This intentionally unrelated control should have no lexical relevance to the apple-color contract.",
+      "assumptions": ["The task concerns planetary orbits rather than apparent surface color."],
+      "keywords": ["planetary", "orbit", "kepler", "ellipse", "perihelion"],
+      "dimensions": ["principle", "reasoning"],
+      "source_ids": ["nasa-orbits"],
+      "overlap": "orbital-dynamics"
+    }
+  ]
+}

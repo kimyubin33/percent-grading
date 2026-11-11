@@ -6,7 +6,7 @@ Percent Grading studies how to preserve the valid parts of an answer without mis
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Large-scale theory retrieval and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) for current commands and formats.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -638,3 +638,98 @@ Run the offline Rust examples from the [Rust guide](../docs/RUST_GUIDE.md). They
 5. Change an anchor's definition. Explain why the new run must not be presented as a replay of the old policy.
 
 Worked answers: (1) The conflicting anchors require review; a numerical midpoint does not resolve their meaning. (2) Accepting independent score fields creates a second source of numerical authority. (3) Text existence and logical support are different properties. (4) It may earn separate future-exploration credit but cannot repair an unsupported present claim. (5) The meaning of a grade depends on the policy used to produce it, so the policy change creates a new evaluation identity.
+
+## 15. Discovering and freezing relevant perspectives
+
+### 15.1 From a large ambition to an inspectable process
+
+The ambition to inspect an answer through many theories introduces a new problem: who chooses the theories, and when? A system that searches only after seeing a desired conclusion may find explanations that excuse that conclusion. A system that includes every vaguely related document can overwhelm its judges and make the same idea look like independent evidence many times.
+
+Version 0.3.0 therefore separates four operations. Bibliographic discovery locates publications. Curation states what a source supports and under which assumptions. Selection chooses a bounded part of that declared catalog for a fixed task. Evaluation applies the original scoring criteria with that material as additional context.
+
+Only some of these operations are automated. The program searches Crossref metadata and selects from a catalog. It does not automatically read every discovered paper, prove the source's claims, or certify a curator's interpretation. Making this boundary explicit is part of an engineering theory: a component should have a defined input, observable output, and limited claim.
+
+### 15.2 Publication metadata is not a scientific conclusion
+
+A search result can provide a title, DOI, publisher, and publication year. These facts help locate a work. They do not tell us whether the work supports a proposed explanation, whether its assumptions match the task, or whether later research overturned it.
+
+Suppose discovery returns a paper whose title contains both “apple” and “color.” The paper might concern fruit sorting, pigment chemistry, sensor calibration, or a computer-vision dataset. Its title alone cannot decide whether the statement “this apple appears blue under the stated conditions” is justified.
+
+The implemented discovery command stores candidates without making them score-bearing facts. A curator must inspect the source before adding a catalog entry. The entry includes a limited excerpt or an explicitly labeled paraphrase, a URL, assumptions, a declared kind, and eligible grading dimensions. The catalog preserves that statement for inspection; it does not establish that the curator is correct.
+
+### 15.3 A perspective is a question to inspect
+
+In this implementation, a perspective is an operational lens. It tells the evaluator what relationship or condition to inspect. It is not an extra scoring criterion and does not receive a new share of the grade.
+
+The example catalog contains eight entries. Two deliberately describe the same surface-spectrum mechanism. One concerns orbital motion and is irrelevant to the apple task. The remaining entries inspect illumination, observer scope, task alignment, the principle-to-conclusion connection, and a future intervention. This small catalog makes selection behavior visible before attempting much larger collections.
+
+The declared kinds are `established`, `method`, and `hypothesis`. An established account points to supporting material. A method declares an evaluation procedure proposed by this project or another source. A hypothesis remains conditional. In the current schema, hypothesis entries can map only to future criteria. This structural rule prevents a future-only lens from being directly assigned to present-task scoring.
+
+The exact source excerpt supplied to the judges is stored. The program checks that referenced source IDs exist and that fields satisfy the schema. It does not treat the presence of a URL as proof. Source material, even when reputable, remains untrusted context rather than an instruction to change the task.
+
+### 15.4 Select from the task before reading the answer
+
+Let \(T\) be the fixed task material: question, context, reference, and criterion descriptions. Let \(K_l\) be the set of declared keywords for lens \(l\). A simplified description of the implemented relevance count is:
+
+\[
+R(l,T)=\left|\{k\in K_l: k\text{ matches normalized words or a phrase in }T\}\right|.
+\]
+
+The learner's answer is absent from \(T\). That choice does not remove every source of bias: the reference and the catalog can themselves be poorly designed. It does make one important intervention testable. Changing only the answer cannot change which perspectives the deterministic selector chooses.
+
+The matcher handles normalized words and phrases. It does not perform translation, stemming, or conceptual inference. An explanation using “scarlet” may not match a keyword “red.” The correct response to such a failure is to improve and version the declared catalog or retrieval method, rather than claim that keyword matching measures meaning perfectly.
+
+Candidates are ranked by distinct matched keywords, with identifier order resolving ties. Eligible dimensions map to the contract's existing criteria. Selection then respects the declared overlap groups, exact-content duplication, the number of entries, and the serialized context-byte budget. When a high-ranked candidate is too large, it does not consume its group's slot; a smaller candidate from that group can still be considered.
+
+The output preserves selected IDs, sources, matched keywords, criterion mappings, and diagnostics. A criterion without selected external context remains in the original rubric. Missing external coverage is not permission to remove it or award points automatically.
+
+### 15.5 Why duplicate suppression and fixed weights are both necessary
+
+Suppose five catalog entries restate selective reflection. If all five enter the prompt, the model may perceive repeated support as stronger evidence. Declaring their common overlap group makes the selector keep at most one. Exact-content duplication is also checked.
+
+This is a useful control, but it is not a complete semantic deduplicator. A curator can paraphrase a record and give it a different overlap label. The system may then regard it as a separate perspective. The source catalog must remain open to review.
+
+Fixed criterion weights provide a different protection. Even if additional lenses are selected, the maximum award for a criterion does not increase. A 30-point principle dimension remains a 30-point dimension. The AI still returns an anchor ID, and Rust still calculates the predefined points.
+
+These controls address different failure modes. Deduplication limits repetitive context. Fixed weights prevent perspective count from creating extra available credit. Neither proves that a model's semantic judgment will remain unchanged when context changes.
+
+### 15.6 A frozen research pack is part of an evaluation
+
+The same answer and rubric can lead to a different judgment if the evidence supplied to the model changes. Research context therefore belongs in the evaluation identity, beside the answer, contract, models, and prompt configuration.
+
+The research pack stores the catalog snapshot, selection configuration, checked contract identity, selected material, and diagnostics. Verification repeats deterministic selection and checks the stored identity. A pack bound to a different contract is rejected. Only the selected, bounded context enters the model request; the full catalog stays in the local record.
+
+Both judges receive the same pack. It cannot rewrite anchors, change weights, substitute an imagined scenario for the fixed task, or make a future event a present fact. Exact answer-evidence checks still apply. A source excerpt does not replace the requirement to show what the learner actually wrote.
+
+Replay uses the saved pack and provider responses without performing discovery again. A changed catalog or budget produces a distinct identity for a new evaluation. This does not prove the original judgment true. It preserves what was supplied so a reviewer can reconstruct why a particular evaluation was made.
+
+The hashes detect ordinary inconsistency, not forgery by someone who controls the complete local record. They are not publisher signatures or proof that an API generated an imported statement.
+
+### 15.7 Laboratory: the eight-entry apple catalog
+
+Compile the apple policy once, then select and inspect the catalog:
+
+```text
+cargo run --locked -- compile policies/apple.aha --out local-runs/apple.lock.json
+cargo run --locked -- select local-runs/apple.lock.json catalogs/apple.json --out local-runs/apple.research.json
+cargo run --locked -- inspect-research local-runs/apple.lock.json local-runs/apple.research.json
+```
+
+Reuse an existing lock instead of overwriting it. The default selection contains six perspectives. The unrelated orbital entry has no matching keyword, and the second surface-spectrum entry is excluded for overlap. All five grading criteria have selected coverage. This is a deterministic software result, not a test of an AI's scientific accuracy.
+
+Repeat selection with a limit of three perspectives. Inspect which criteria lose external coverage. Then preview a grading request using `prompt` and `--research`. Confirm that the fixed scoring criteria are unchanged, that the selected sources are clearly separated as context, and that the learner's answer did not influence the selection.
+
+A real comparison would run the two configured models with no external pack, the small pack, and the default pack. It would measure false acceptance, valid-alternative rejection, disagreement, useful feedback, token usage, and cost. More context is a hypothesis about improvement, not an improvement by definition.
+
+### 15.8 Exercises and worked answers
+
+1. A search result has a DOI and a plausible title. What must happen before it becomes a declared factual lens?
+2. Two different answers to the same fixed task produce different selections with the same catalog and configuration. Which design rule has been broken?
+3. A duplicated lens uses a new overlap group and different wording. Why can the current selector miss the duplication?
+4. A future hypothesis receives a high separate score. Can it repair a false present conclusion?
+5. A smaller prompt budget omits every external lens for one criterion. What happens to that criterion's original weight?
+6. A catalog correction changes a source paraphrase. Why should the new grade have a different run identity?
+
+Worked answers: (1) Inspect the source and its scope, state the supported claim, preserve a limited excerpt or labeled paraphrase, and identify assumptions and eligible dimensions. A DOI alone is insufficient. (2) Selection must be independent of the learner's answer. (3) Matching declared overlap groups and exact content is not general semantic equivalence detection. (4) No; future exploration remains separate from present validity. (5) The weight remains fixed; the report exposes missing selected coverage. (6) The judges receive different evidence, so presenting the result as an unchanged replay would hide a material input change.
+
+Further reading and the example's primary source notes are in the [research guide](../docs/RESEARCH_GUIDE.md).

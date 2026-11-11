@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 — 2026-11-12
+
+- Added bounded Crossref bibliographic discovery with DOI metadata and verifiable snapshots.
+- Added sourced catalogs with explicit assumptions, dimensions, hypotheses, and overlap groups.
+- Added deterministic selection from the task before seeing the answer, with count and context-byte limits.
+- Suppressed overlap groups and exact duplicate content without adding scoring weight.
+- Bound selected research, catalog snapshots, and selection diagnostics into the grading run identity.
+- Preserved replay of 0.2 records without rewriting their identities or results.
+- Added an eight-perspective apple catalog, research guide, and textbook chapter 15.
+- Passed 80 local Rust tests, formatting, and Clippy, including a 10,000-entry capacity test.
+
+The live Crossref connection was unavailable in the local execution environment. CI includes a non-blocking public connectivity smoke check; inspect that step separately from the offline test results. No paid AI evaluations were performed. Discovery returns candidates for source inspection, not validated theories.
+
 ## 0.2.0 — 2026-11-12
 
 The project now has a Rust executable that compiles an actual RelSpec/AHAA contract, calls exactly OpenAI and Claude, validates categorical evidence, and produces a deterministic score profile.

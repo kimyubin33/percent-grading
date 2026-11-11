@@ -16,6 +16,18 @@ The initial implementation generated evaluation requests, validated manual JSON 
 
 Software tests and manually authored fixtures verify specified behavior. They do not establish live-provider reliability, grading accuracy, or educational benefit.
 
+## 0.3.0 — Bibliographic discovery and frozen perspective selection
+
+- Search the fixed Crossref metadata endpoint for bounded bibliographic candidates.
+- Validate versioned local catalogs with source references and explicit assumptions.
+- Select perspectives from the checked task without inspecting the learner's answer.
+- Limit selected context by count and byte budget; suppress repeated declared overlap groups.
+- Preserve keyword matches, criterion mappings, exclusions, and uncovered criteria.
+- Freeze the catalog and selection into a verifiable pack that becomes part of each grading run.
+- Provide a small sourced apple catalog and textbook chapter 15.
+
+Search results remain candidates until a curator inspects the underlying source. Lexical matching and overlap labels do not establish semantic relevance or scientific validity. Input-capacity tests are not a benchmark of theory coverage.
+
 ## Next — Controlled live validation
 
 Run public, consented examples using explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation.
@@ -28,9 +40,9 @@ Develop an explicit review workflow for disputed anchors. Preserve the two origi
 
 Acceptance: an amended outcome has a traceable reason and cannot silently replace its original evidence. Re-evaluate all affected answers after a rubric change.
 
-## Next — Perspective retrieval and selection
+## Next — Evaluate and improve research selection
 
-Extend the declared perspective registry with sourced retrieval, relevance criteria, versioning, and overlap checks. Adding a perspective must not add weight to an unchanged criterion.
+Evaluate the implemented catalog selector and bibliographic discovery workflow. Improve semantic relevance checks and source curation using measured failure cases. Adding a perspective must not add weight to an unchanged criterion.
 
 Acceptance: compare small and larger relevant perspective sets under controlled budgets, including duplicated and irrelevant lenses. Publish cases where more perspectives harm performance.
 
