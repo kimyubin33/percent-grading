@@ -300,7 +300,8 @@ fn archived(dir: &Path, snapshot: &Snapshot, provider: Provider) -> Result<Judgm
 fn compute(dir: &Path, snapshot: &Snapshot) -> Result<Report, String> {
     let openai = archived(dir, snapshot, Provider::Openai)?;
     let claude = archived(dir, snapshot, Provider::Claude)?;
-    let mut report = grading::aggregate(
+    let mut report = grading::aggregate_for_version(
+        &snapshot.identity.engine_version,
         &snapshot.lock.contract,
         &snapshot.identity.contract_hash,
         &snapshot.answer,
@@ -311,8 +312,6 @@ fn compute(dir: &Path, snapshot: &Snapshot) -> Result<Report, String> {
     if let Some(pack) = &snapshot.evidence {
         grading::apply_evidence_gate(&mut report, &pack.blocked_criteria)?;
     }
-    // Replayed runs retain their original engine version; 0.4 evidence gates remain active.
-    report.engine_version = snapshot.identity.engine_version.clone();
     Ok(report)
 }
 fn output(
@@ -351,6 +350,10 @@ pub fn replay(dir: &Path) -> Result<Value, String> {
         && snapshot.identity.experiment_trial.is_none()
     {
         expected.engine_version = "0.4.0".into();
+    } else if snapshot.identity.engine_version == "0.5.0" {
+        // 0.5 introduced experiment trials. Their original prompts and score
+        // scale remain replayable, while input hashes are still checked below.
+        expected.engine_version = "0.5.0".into();
     }
     if serde_json::to_value(&expected).unwrap() != serde_json::to_value(&snapshot.identity).unwrap()
     {
@@ -878,7 +881,10 @@ mod tests {
         assert_eq!(result["evidence_hash"], blocked.pack_hash);
         assert!(result["report"]["current"]["percent"].is_null());
         assert_eq!(result["report"]["current"]["lower_percent"], 0.0);
-        assert_eq!(result["report"]["current"]["upper_percent"], 100.0);
+        assert_eq!(
+            result["report"]["current"]["upper_percent"],
+            grading::MAX_OFFICIAL_PERCENT
+        );
         assert_eq!(
             result["report"]["criteria"][0]["status"],
             "evidence_unresolved"
@@ -1075,8 +1081,7 @@ mod tests {
             let name = format!("{provider}.response.json");
             fs::copy(current.join(&name), old_dir.join(name)).unwrap();
         }
-        let mut report: Report = read_json(&current.join("report.json")).unwrap();
-        report.engine_version = "0.2.0".into();
+        let report = compute(&old_dir, &legacy).unwrap();
         write_new(&old_dir.join("report.json"), &report).unwrap();
         let before = fs::read(old_dir.join("input.json")).unwrap();
         let restored = replay(&old_dir).unwrap();
@@ -1111,8 +1116,7 @@ mod tests {
             let name = format!("{provider}.response.json");
             fs::copy(current.join(&name), old_dir.join(name)).unwrap();
         }
-        let mut report: Report = read_json(&current.join("report.json")).unwrap();
-        report.engine_version = "0.3.0".into();
+        let report = compute(&old_dir, &legacy).unwrap();
         write_new(&old_dir.join("report.json"), &report).unwrap();
         let before = fs::read(old_dir.join("input.json")).unwrap();
         let restored = replay(&old_dir).unwrap();
@@ -1213,8 +1217,7 @@ mod tests {
                 let name = format!("{provider}.response.json");
                 fs::copy(current.join(&name), old_dir.join(name)).unwrap();
             }
-            let mut report: Report = read_json(&current.join("report.json")).unwrap();
-            report.engine_version = "0.4.0".into();
+            let report = compute(&old_dir, &legacy).unwrap();
             write_new(&old_dir.join("report.json"), &report).unwrap();
         }
         let restored = replay(&old_dir).unwrap();
@@ -1224,6 +1227,69 @@ mod tests {
         let forged = dir.join(legacy.identity.run_id().unwrap());
         write_new(&forged.join("input.json"), &legacy).unwrap();
         assert!(replay(&forged).unwrap_err().contains("Run identity"));
+        cleanup(&dir);
+    }
+    #[test]
+    fn version_05_trial_replays_full_scores_without_applying_the_new_ceiling() {
+        let (lock, fixture, pack, config, dir) = evidence_fixture();
+        let trial = hash(b"legacy v0.5 complete trial");
+        let result = run_trial_with(
+            &lock,
+            &fixture.answer,
+            &config,
+            &dir,
+            Some(&pack),
+            &trial,
+            |p, _, _, _, _, _| Ok(response(&lock, &fixture, p)),
+        )
+        .unwrap();
+        assert_eq!(
+            result["report"]["current"]["percent"],
+            grading::MAX_OFFICIAL_PERCENT
+        );
+        let current = PathBuf::from(result["run_directory"].as_str().unwrap());
+        let mut legacy: Snapshot = read_json(&current.join("input.json")).unwrap();
+        legacy.identity.engine_version = "0.5.0".into();
+        let old_id = legacy.identity.run_id().unwrap();
+        let old_dir = dir.join(&old_id);
+        write_new(&old_dir.join("input.json"), &legacy).unwrap();
+        for provider in [Provider::Openai, Provider::Claude] {
+            let name = format!("{provider}.response.json");
+            fs::copy(current.join(&name), old_dir.join(name)).unwrap();
+        }
+        // Relabeling a new capped report is not a valid historical archive.
+        let mut relabeled: Report = read_json(&current.join("report.json")).unwrap();
+        relabeled.engine_version = "0.5.0".into();
+        write_new(&old_dir.join("report.json"), &relabeled).unwrap();
+        assert!(
+            replay(&old_dir)
+                .unwrap_err()
+                .contains("deterministic recomputation")
+        );
+        let historical = compute(&old_dir, &legacy).unwrap();
+        assert_eq!(historical.current.percent, Some(100.0));
+        assert_eq!(historical.current.upper_percent, 100.0);
+        assert!(!historical.interpretation.contains("99.9"));
+        fs::write(
+            old_dir.join("report.json"),
+            serde_json::to_vec(&historical).unwrap(),
+        )
+        .unwrap();
+        let before = fs::read(old_dir.join("report.json")).unwrap();
+        let restored = replay(&old_dir).unwrap();
+        assert_eq!(restored["report"]["current"]["percent"], 100.0);
+        assert_eq!(restored["run_id"], old_id);
+        assert_eq!(fs::read(old_dir.join("report.json")).unwrap(), before);
+        read_judgments(&old_dir).unwrap();
+
+        legacy.identity.engine_version = "0.7.0".into();
+        let unsupported_dir = dir.join(legacy.identity.run_id().unwrap());
+        write_new(&unsupported_dir.join("input.json"), &legacy).unwrap();
+        assert!(
+            replay(&unsupported_dir)
+                .unwrap_err()
+                .contains("Run identity")
+        );
         cleanup(&dir);
     }
 }

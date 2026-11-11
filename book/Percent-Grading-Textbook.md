@@ -6,7 +6,7 @@ Percent Grading studies how to preserve the valid parts of an answer without mis
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Chapter 17 develops the Rust 0.5.0 benchmark harness, bounded experiments, and application interfaces. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Chapter 17 develops the Rust 0.5.0 benchmark harness, bounded experiments, and application interfaces. Chapter 18 develops the Rust 0.6.0 historical-failure regression gate, official score ceiling, and finite proof achievement. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -864,3 +864,56 @@ Run the offline corpus commands in the [benchmark guide](../docs/BENCHMARK_GUIDE
 6. A UI converts `null` to `0` before drawing a score bar. Which distinction has it lost?
 
 Worked answers: (1) Both can share a mistake relative to the authored criterion expectation. (2) Coverage and the distribution of withheld cases. (3) Shared task content can leak into tuning. (4) No; it has checked replay, not a new provider decision. (5) The server may still be running and may already have incurred usage; inspect the saved run and preserve the first response. (6) Unresolved assessment has been confused with a settled zero award.
+
+
+# 18 Learning from failed proxies and checking a discovery
+
+## 18.1 Automated grading has a history
+
+Statistical essay grading was being developed in the 1960s. Later systems used natural-language features, machine learning, test execution, and formal methods. Their history includes useful improvements and documented failures. It does not justify either dismissing earlier work or assuming that a modern language model resolves every old problem.
+
+The [primary-source historical analysis](../docs/HISTORICAL_FAILURES.md) distinguishes observed experimental findings from this project's engineering response. A central recurring mistake is allowing an accessible proxy to replace the intended learning outcome: length can stand in for development of an argument, related words can stand in for a meaningful relation, and passing a finite test suite can stand in for program correctness.
+
+RelSpec makes a rule explicit and checkable. It cannot establish that the author selected the right rule. Two constrained judges can agree on a wrong anchor. The question is therefore both structural and empirical: does the program enforce the intended contract, and do the observed judgments meet independently reviewed expectations?
+
+## 18.2 Make each failure visible
+
+The 0.6 adversarial corpus adds three tasks and 24 answers. Each task has a baseline plus controlled variants involving irrelevant padding, grammar, keyword shuffling, negation, contradiction, authority claims, and prompt injection. A grammar variant is expected to retain credit because these tasks assess content, not writing quality. That expectation would need reconsideration for a language-proficiency rubric.
+
+The supplied results intentionally contain two wrong agreements and one withheld criterion. They test whether the reporting machinery exposes a failure; they are not measurements of OpenAI or Claude. A successful software test here means the bad fixture fails its gate as expected. Replacing those results with favorable invented data would defeat the experiment.
+
+The gate binds thresholds to an exact suite and recomputes metrics from full trials. It checks coverage alongside accepted accuracy, examines every category and declared split, and retains failed or indeterminate transformation checks. A public development fixture can pass only as a development check. A candidate experiment requires further structural prerequisites, but its result still depends on authentic records and defensible expectations. A hash records a choice; it does not prove the choice preceded the results.
+
+## 18.3 A ceiling is a convention, not an uncertainty estimate
+
+Beginning with Rust 0.6, the official profile is capped at 99.9 after computing the weighted anchor score. The rule is `min(raw_weighted_percent, 99.9)`, not multiplication by 0.999. Ordinary partial scores are unchanged. Raw criterion points, critical thresholds, coverage, and benchmark accuracy keep their existing units.
+
+No statistical argument establishes that every complete answer has exactly 0.1% residual uncertainty. The ceiling is a product choice. It must not change a withheld answer into a zero or turn an equal displayed interval into a settled result. Old saved runs retain their original scoring convention; historical results are not silently rewritten to match today's display.
+
+## 18.4 Separate a proposed proof from a checked certificate
+
+A model can propose a proof, but asking another model whether it is convincing does not establish formal correctness. In the first proof experiment, the author freezes a classical Boolean entailment with at most eight variables. The submitted certificate lists every assignment and the truth values of each premise and conclusion. Rust recomputes all values and checks that every assignment satisfying the premises also satisfies the conclusion.
+
+The example is modus ponens: from P and P implies Q, conclude Q. A complete four-row truth table is required, including rows where the premises do not both hold. Omitting a counterexample, duplicating a row, changing the answer binding, or supplying inconsistent premises cannot unlock the feature.
+
+This is exhaustive checking within a small finite domain. It is not a verifier for all mathematics. Nor does it prove that the author's Boolean variables faithfully represent the original natural-language problem. The host must approve the challenge and its mapping before accepting answers; a learner who can change the challenge can choose an easier statement.
+
+## 18.5 Keep the joke outside the grade
+
+The requested surprise is an apparent grading overflow: **10,000%** with a reassuring explanation. The implementation returns it as a separate celebration object. The ordinary current-task report remains capped at 99.9, and exports and benchmarks continue using that report.
+
+The badge requires a checked certificate, a ready report, and full raw current anchors without disagreement or blocking evidence. A partial raw result that happens to reach the display cap is insufficient. A verified formal statement cannot award missing explanation credit, and two full-score model judgments cannot substitute for the certificate.
+
+The displayed message calls the number a celebration and states the finite scope of verification. It does not claim a new discovery, AI authorship, a crash, or a partially completed proof of Fermat's Last Theorem. See the [proof guide](../docs/PROOF_GUIDE.md) for the complete offline example and its limits.
+
+## 18.6 Laboratory exercises
+
+1. A content-only answer gains unrelated fluent paragraphs. What criterion could justify extra credit, and what happens if no such criterion exists?
+2. A benchmark has perfect accepted accuracy but withholds every keyword-shuffle case. Why is this insufficient evidence of robustness?
+3. Both models select full credit on a deliberately nonsensical answer. Which metric exposes this even if their agreement is perfect?
+4. Two unresolved raw outcomes cap to the same displayed 99.9. Is the final score now settled?
+5. A certificate lists three correct rows of a two-variable truth table. Why reject it even if the omitted row looks unimportant?
+6. A student changes the challenge to an easy tautology and recomputes every hash. Which check must the host supply beyond hash validation?
+7. A proof badge displays 10,000%. Which value should a class grade export use?
+
+Worked answers: (1) Extra credit requires an already declared, genuinely satisfied criterion; length alone creates no credit. (2) Coverage and category results expose selective withholding. (3) Wrong-agreement counts against the authored expected anchors. (4) No; settlement and raw disagreement remain unchanged. (5) Completeness prevents selective omission of counterexamples. (6) Trusted author approval and binding to the previously approved task challenge. (7) The ordinary official report, never the cosmetic badge.

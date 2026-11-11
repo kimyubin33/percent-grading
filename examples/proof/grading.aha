@@ -1,0 +1,12 @@
+낱말 Policy: version*, question*, context*, reference*
+낱말 Criterion: dimension*, weight*(정수), description*, critical_min*
+낱말 Anchor: criterion*, points*(정수), description*
+낱말 Perspective: criteria*, kind*, source*, assumptions*, description*, overlap*
+
+장면 ModusPonensAssessment
+  Policy modus_ponens: version 1, question Explain why Q follows from P and P implies Q in classical propositional logic. Include the formal assertion ((P) AND (P -> Q)) -> (Q)., context P and Q are Boolean propositions. The implication operator is material implication. This is a finite logical exercise rather than a claim about an empirical world or general mathematical proof., reference From true P and true P -> Q it follows that Q is true. The formal assertion ((P) AND (P -> Q)) -> (Q) holds under all four assignments.
+  Criterion proof: dimension intent, weight 100, description State and justify modus ponens under the declared Boolean interpretation and include the formal assertion., critical_min 100
+  Anchor proof_zero: criterion proof, points 0, description The stated conclusion is missing or false or replaced with an unsupported proof claim.
+  Anchor proof_partial: criterion proof, points 50, description The correct formal assertion appears but the inference from the two premises is not explained.
+  Anchor proof_full: criterion proof, points 100, description The correct assertion and a valid inference from both premises to Q are given without introducing a contradiction.
+  Perspective boolean_logic: criteria proof, kind method, source DeclaredBooleanModel, assumptions Only classical Boolean semantics apply., description Check the conditional inference with its two stated premises., overlap logic

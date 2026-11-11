@@ -53,9 +53,21 @@ This is a source-review protocol and deterministic enforcement layer. It does no
 
 The corpus is small and publicly authored. It exercises the experiment protocol, not independent grading validity. No paid provider evaluation is claimed. The local API adapter leaves user accounts, task authorization, production hosting, and application-level controls to its host.
 
+## 0.6.0 - Historical failure regression and checked achievements
+
+- Review primary research on scoring proxies, adversarial answers, biased reference labels, incomplete tests, and the limits of formal checking.
+- Add 24 authored adversarial answers with paired transformations and deliberately failing manual results.
+- Bind acceptance thresholds to an exact suite and check overall, split, and per-category results, coverage, wrong agreements, missing categories, and relation failures.
+- Apply a 99.9 official score ceiling without altering raw anchors or silently migrating earlier reports.
+- Compile a separate RelSpec proof challenge and independently verify complete truth-table certificates within a bounded Boolean domain.
+- Return a separate, explained 10,000% celebration only for a checked certificate and fully settled maximum current anchors.
+- Expose these operations through the existing application boundaries and add textbook chapter 18.
+
+The gate detects specified failures in supplied results; it does not prevent every semantic model error. The proof checker is deliberately finite and does not decide arbitrary mathematical proofs, originality, or natural-language truth. Challenge approval, independent benchmark adjudication, real-provider evaluation, and classroom authorization remain host or research responsibilities.
+
 ## Next — Controlled live validation
 
-Use the 0.5 experiment runner with independently reviewed public or consented examples and explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation. Distinguish a small protocol fixture from a sufficiently reviewed evaluation corpus.
+Use the experiment runner with independently reviewed public or consented examples and explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation. Distinguish a small protocol fixture from a sufficiently reviewed evaluation corpus.
 
 Acceptance: publish a reproducible run manifest and reviewed failure cases. Distinguish live model judgments from authored fixtures and software tests.
 

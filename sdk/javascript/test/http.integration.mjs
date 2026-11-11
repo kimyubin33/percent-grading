@@ -42,6 +42,26 @@ test("JavaScript client uses the real Rust HTTP service without provider calls",
     const evaluated = await client.evaluate({ lock, answer: fixture.answer, openai: judgment(fixture.openai), claude: judgment(fixture.claude) });
     assert.equal(evaluated.report.status, "blocked");
     assert.equal(evaluated.report.current.percent, 46.25);
+    const exampleText = name => readFile(new URL(`../../../examples/proof/${name}`, import.meta.url), "utf8");
+    const { lock: proofLock } = await client.compile(await exampleText("grading.aha"));
+    const { policy: proofPolicy } = await client.proofPolicy({ lock: proofLock, source: await exampleText("challenge.aha") });
+    const proofAnswer = await exampleText("answer.txt");
+    const certificate = JSON.parse(await exampleText("certificate.json"));
+    const proofJudgment = JSON.parse(await exampleText("judgment.json"));
+    const proofPrompt = await client.proofPrompt({ lock: proofLock, policy: proofPolicy, answer: proofAnswer });
+    assert.equal(typeof proofPrompt.system, "string");
+    const proofInput = { lock: proofLock, policy: proofPolicy, answer: proofAnswer, certificate, openai: proofJudgment, claude: proofJudgment };
+    const checked = await client.proofEvaluate(proofInput);
+    assert.equal(checked.report.current.percent, 99.9);
+    assert.equal(checked.celebration.display_percent, 10000);
+    assert.equal(checked.celebration.official_percent, 99.9);
+    assert.match(checked.celebration.message, /celebration/);
+    const incomplete = { ...certificate, rows: certificate.rows.slice(1) };
+    await assert.rejects(client.proofEvaluate({ ...proofInput, certificate: incomplete }), error => error.code === "validation_failed");
+    const benchmarkJson = async name => JSON.parse(await readFile(new URL(`../../../benchmarks/adversarial/${name}`, import.meta.url), "utf8"));
+    const { gate } = await client.benchmarkGate({ suite: await benchmarkJson("suite.json"), results: await benchmarkJson("manual-results.json"), policy: await benchmarkJson("gate-policy.json") });
+    assert.equal(gate.passed, false);
+    assert.ok(gate.violations.length > 0);
     await assert.rejects(client.grade({ lock, answer: fixture.answer, config: {
       openai_model: "offline-openai", claude_model: "offline-claude",
       limits: { timeout_seconds: 10, max_output_tokens: 1024, max_response_bytes: 2097152, max_attempts: 1 },

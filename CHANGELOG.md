@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 - 2026-11-12
+
+- Added a primary-source analysis of historical essay, short-answer, and programming-grader limitations, with concrete defense mappings and remaining research questions.
+- Added 24 adversarial answer cases across three tasks and a frozen benchmark gate that checks overall, split, and category performance, coverage, wrong agreements, and relations without treating missing results as success.
+- Capped new official current/future scores and bounds at 99.9 while retaining raw anchor units, coverage, unresolved states, and original 0.2–0.5 replay semantics.
+- Added RelSpec proof challenges and an exhaustive, bounded Boolean truth-table certificate checker; forged bindings, incomplete tables, counterexamples, and vacuous premises fail closed.
+- Added an optional 10,000% celebration separate from official scoring. It requires checked entailment and full, settled current anchors; its message explains the joke and the checker's scope.
+- Exposed proof and gate operations through the CLI, JSON/HTTP API, and JavaScript/TypeScript client, with complete offline examples and textbook chapter 18.
+
+The new corpus and certificate examples are authored fixtures, not live model measurements. No paid AI evaluation was performed. The proof checker supports finite propositional logic only and does not certify arbitrary mathematics, novelty, or the validity of a natural-language formalization. Passing a gate does not establish educational validity or approve deployment.
+
 ## 0.5.0 - 2026-11-12
 
 - Added a strict benchmark suite/result format, criterion expectations, within-task relations, development/holdout splits, and detailed failure and coverage reports.

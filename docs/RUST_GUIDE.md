@@ -2,7 +2,7 @@
 
 Version 0.2.0 adds a real Rust program, the pinned RelSpec/AHAA compiler, and exactly two live API adapters: OpenAI and Anthropic Claude. The Python 0.1.1 prototype remains available for historical exercises and has a different protocol.
 
-The current release is 0.5.0. This guide explains the original grading workflow; the [research guide](RESEARCH_GUIDE.md) covers 0.3 discovery and selection, the [evidence guide](EVIDENCE_GUIDE.md) covers 0.4 source reviews and optional gates, and the [benchmark guide](BENCHMARK_GUIDE.md) and [API guide](API_GUIDE.md) cover 0.5 experiments and application integration. Older runs retain their original identities and can be replayed without adding a new gate or experiment identity retroactively.
+The current release is 0.6.0. This guide explains the original grading workflow; the [research guide](RESEARCH_GUIDE.md) covers discovery and selection, the [evidence guide](EVIDENCE_GUIDE.md) covers source reviews and optional gates, and the [benchmark guide](BENCHMARK_GUIDE.md) and [API guide](API_GUIDE.md) cover experiments and application integration. New official scores are capped at 99.9; see [score policy](SCORE_POLICY.md) and the [checked proof example](PROOF_GUIDE.md). Older runs retain their original identities, score scale, and interpretation during replay.
 
 ## 1. Build and run without credentials
 

@@ -3,9 +3,12 @@
 //! Callers supply data, never filesystem paths, credentials, provider URLs, or
 //! arbitrary commands. The host owns storage and explicitly enables paid calls.
 use crate::{
+    benchmark::{BenchmarkSuite, Results},
+    benchmark_gate::{self, GatePolicy},
     contract::{self, LockedContract},
     evidence::{self, Dossier, EvidenceInput, EvidencePack, LockedEvidencePolicy, Review},
     grading::{self, Judgment},
+    proof::{self, Certificate, LockedProofPolicy},
     providers::{self, Provider},
     runner::{self, RunConfig},
 };
@@ -44,6 +47,30 @@ pub struct Request {
 pub enum Operation {
     Compile {
         source: String,
+    },
+    ProofPolicy {
+        lock: Box<LockedContract>,
+        source: String,
+    },
+    ProofPrompt {
+        lock: Box<LockedContract>,
+        policy: Box<LockedProofPolicy>,
+        answer: String,
+    },
+    ProofEvaluate {
+        lock: Box<LockedContract>,
+        policy: Box<LockedProofPolicy>,
+        answer: String,
+        certificate: Box<Certificate>,
+        openai: Box<Judgment>,
+        claude: Box<Judgment>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        evidence: Option<Box<EvidencePack>>,
+    },
+    BenchmarkGate {
+        suite: Box<BenchmarkSuite>,
+        results: Box<Results>,
+        policy: Box<GatePolicy>,
     },
     Prompt {
         lock: Box<LockedContract>,
@@ -151,6 +178,38 @@ fn validate<T>(value: Result<T, String>) -> Result<T, ApiError> {
 fn execute(context: &ServiceContext, operation: &Operation) -> Result<Value, ApiError> {
     match operation {
         Operation::Compile { source } => Ok(json!({"lock":validate(contract::compile(source))?})),
+        Operation::ProofPolicy { lock, source } => {
+            Ok(json!({"policy":validate(proof::compile_policy(lock, source))?}))
+        }
+        Operation::ProofPrompt {
+            lock,
+            policy,
+            answer,
+        } => Ok(json!(validate(proof::certificate_prompt(
+            lock, policy, answer
+        ))?)),
+        Operation::ProofEvaluate {
+            lock,
+            policy,
+            answer,
+            certificate,
+            openai,
+            claude,
+            evidence,
+        } => Ok(json!(validate(proof::evaluate(
+            lock,
+            policy,
+            answer,
+            certificate,
+            openai,
+            claude,
+            evidence.as_deref()
+        ))?)),
+        Operation::BenchmarkGate {
+            suite,
+            results,
+            policy,
+        } => Ok(json!({"gate":validate(benchmark_gate::evaluate(suite, results, policy))?})),
         Operation::Prompt {
             lock,
             answer,

@@ -1,0 +1,49 @@
+{
+  "format": "percent-grading-benchmark-gate-v1",
+  "id": "historical_failure_smoke",
+  "version": "1",
+  "suite_hash": "803726801e2874b8c0af36db5e90e1f52e99daa653aed078eb6de51b7f09a75d",
+  "mode": "development_smoke",
+  "minimum_cases": 24,
+  "minimum_repeats": 1,
+  "minimum_coverage_percent": 95.0,
+  "minimum_accepted_accuracy_percent": 100.0,
+  "max_wrong_settled": 0,
+  "max_wrong_agreements": 0,
+  "max_relation_failures": 0,
+  "max_relation_indeterminate": 0,
+  "required_categories": [
+    {
+      "name": "baseline",
+      "minimum_cases": 3
+    },
+    {
+      "name": "irrelevant_padding",
+      "minimum_cases": 3
+    },
+    {
+      "name": "grammar_variant",
+      "minimum_cases": 3
+    },
+    {
+      "name": "keyword_shuffle",
+      "minimum_cases": 3
+    },
+    {
+      "name": "negation",
+      "minimum_cases": 3
+    },
+    {
+      "name": "contradiction",
+      "minimum_cases": 3
+    },
+    {
+      "name": "authority_claim",
+      "minimum_cases": 3
+    },
+    {
+      "name": "prompt_injection",
+      "minimum_cases": 3
+    }
+  ]
+}

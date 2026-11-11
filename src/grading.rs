@@ -11,6 +11,21 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const PROMPT_VERSION: &str = "percent-grading-anchors-v1";
 
+/// Maximum official score from engine 0.6 onward. Anchor points and coverage
+/// retain their original 0..100 scales; this is a cap, not linear rescaling.
+pub const MAX_OFFICIAL_PERCENT: f64 = 99.9;
+
+const LEGACY_INTERPRETATION: &str = "Percentages are fulfillment of fixed anchors. Future exploration is separate from present validity and is not a probability. Bounds describe unresolved anchors or observed provider disagreement; they are not statistical confidence intervals or guarantees against shared semantic errors. A blocked status preserves partial-credit profiles without declaring the task successful.";
+const SCORE_CEILING_NOTE: &str = " Official score values and bounds are capped at 99.9%; raw anchor points and coverage remain on 0..100 scales. The ceiling is a reporting convention, not a measured probability of correctness. Cosmetic achievements never increase the official score.";
+
+fn score_ceiling(engine_version: &str) -> Result<f64, String> {
+    match engine_version {
+        "0.2.0" | "0.3.0" | "0.4.0" | "0.5.0" => Ok(100.0),
+        "0.6.0" => Ok(MAX_OFFICIAL_PERCENT),
+        _ => Err("Unsupported scoring engine version".into()),
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Judgment {
@@ -224,7 +239,7 @@ pub fn validate_judgment(
     Ok(())
 }
 
-fn profile(rows: &[&CriterionReport]) -> Profile {
+fn profile(rows: &[&CriterionReport], ceiling: f64) -> Profile {
     let weight: u64 = rows.iter().map(|r| u64::from(r.weight)).sum();
     let known_weight: u64 = rows
         .iter()
@@ -246,14 +261,14 @@ fn profile(rows: &[&CriterionReport]) -> Profile {
             percent: None,
             coverage_percent: 0.0,
             lower_percent: 0.0,
-            upper_percent: 100.0,
+            upper_percent: ceiling,
         };
     }
     Profile {
-        percent: (known_weight == weight).then_some(lower as f64 / weight as f64),
+        percent: (known_weight == weight).then_some((lower as f64 / weight as f64).min(ceiling)),
         coverage_percent: 100.0 * known_weight as f64 / weight as f64,
-        lower_percent: lower as f64 / weight as f64,
-        upper_percent: upper as f64 / weight as f64,
+        lower_percent: (lower as f64 / weight as f64).min(ceiling),
+        upper_percent: (upper as f64 / weight as f64).min(ceiling),
     }
 }
 
@@ -265,6 +280,29 @@ pub fn aggregate(
     openai: &Judgment,
     claude: &Judgment,
 ) -> Result<Report, String> {
+    aggregate_for_version(
+        env!("CARGO_PKG_VERSION"),
+        contract,
+        contract_hash,
+        answer,
+        answer_hash,
+        openai,
+        claude,
+    )
+}
+
+/// Recompute an archived report using its original scoring convention.
+/// Unknown versions fail closed instead of silently applying today's scale.
+pub fn aggregate_for_version(
+    engine_version: &str,
+    contract: &Contract,
+    contract_hash: &str,
+    answer: &str,
+    answer_hash: &str,
+    openai: &Judgment,
+    claude: &Judgment,
+) -> Result<Report, String> {
+    let ceiling = score_ceiling(engine_version)?;
     validate_judgment(contract, contract_hash, answer, answer_hash, openai)?;
     validate_judgment(contract, contract_hash, answer, answer_hash, claude)?;
     let openai_rows: BTreeMap<&str, &Row> = openai
@@ -327,8 +365,8 @@ pub fn aggregate(
         .iter()
         .filter(|r| r.dimension == "future")
         .collect();
-    let current = profile(&current_rows);
-    let future = (!future_rows.is_empty()).then(|| profile(&future_rows));
+    let current = profile(&current_rows, ceiling);
+    let future = (!future_rows.is_empty()).then(|| profile(&future_rows, ceiling));
     let status = if !critical_failures.is_empty() {
         "blocked"
     } else if criteria.is_empty() || criteria.iter().any(|r| r.awarded_points.is_none()) {
@@ -337,7 +375,7 @@ pub fn aggregate(
         "ready"
     };
     Ok(Report {
-        engine_version: env!("CARGO_PKG_VERSION").into(),
+        engine_version: engine_version.into(),
         contract_hash: contract_hash.into(),
         answer_hash: answer_hash.into(),
         status: status.into(),
@@ -346,7 +384,11 @@ pub fn aggregate(
         disagreements,
         critical_failures,
         criteria,
-        interpretation: "Percentages are fulfillment of fixed anchors. Future exploration is separate from present validity and is not a probability. Bounds describe unresolved anchors or observed provider disagreement; they are not statistical confidence intervals or guarantees against shared semantic errors. A blocked status preserves partial-credit profiles without declaring the task successful.".into(),
+        interpretation: if ceiling < 100.0 {
+            format!("{LEGACY_INTERPRETATION}{SCORE_CEILING_NOTE}")
+        } else {
+            LEGACY_INTERPRETATION.into()
+        },
     })
 }
 
@@ -354,6 +396,7 @@ pub fn aggregate(
 /// This cannot award points or convert missing knowledge into a learner failure.
 /// Original model rows remain untouched so the override can be audited.
 pub fn apply_evidence_gate(report: &mut Report, blocked: &[String]) -> Result<(), String> {
+    let ceiling = score_ceiling(&report.engine_version)?;
     if blocked.is_empty() {
         return Ok(());
     }
@@ -386,8 +429,8 @@ pub fn apply_evidence_gate(report: &mut Report, blocked: &[String]) -> Result<()
         .iter()
         .filter(|r| r.dimension == "future")
         .collect();
-    report.current = profile(&current);
-    report.future = (!future.is_empty()).then(|| profile(&future));
+    report.current = profile(&current, ceiling);
+    report.future = (!future.is_empty()).then(|| profile(&future, ceiling));
     report.status = if report.critical_failures.is_empty() {
         "review"
     } else {
@@ -475,8 +518,79 @@ mod tests {
         let result = score(&c, &a, &a).unwrap();
         assert_eq!(result, score(&c, &a, &a).unwrap());
         assert_eq!(result.status, "ready");
-        assert_eq!(result.current.percent, Some(100.0));
-        assert_eq!(result.future.unwrap().percent, Some(100.0));
+        assert_eq!(result.current.percent, Some(MAX_OFFICIAL_PERCENT));
+        assert_eq!(result.future.unwrap().percent, Some(MAX_OFFICIAL_PERCENT));
+    }
+
+    #[test]
+    fn ceiling_caps_only_official_scores_and_keeps_anchor_and_coverage_scales() {
+        let c = contract();
+        let a = judgment(&c);
+        let full = score(&c, &a, &a).unwrap();
+        assert_eq!(full.current.percent, Some(99.9));
+        assert_eq!(full.current.lower_percent, 99.9);
+        assert_eq!(full.current.upper_percent, 99.9);
+        assert_eq!(full.current.coverage_percent, 100.0);
+        assert!(full.criteria.iter().all(|r| r.awarded_points == Some(100)));
+        assert_eq!(full.future.as_ref().unwrap().percent, Some(99.9));
+        assert!(full.interpretation.contains("not a measured probability"));
+
+        let mut partial = a.clone();
+        partial.judgments[1].anchor_id = "principle_half".into();
+        let result = score(&c, &partial, &partial).unwrap();
+        assert_eq!(result.current.percent, Some(70.0));
+        assert_eq!(result.current.coverage_percent, 100.0);
+    }
+
+    #[test]
+    fn a_capped_zero_width_range_does_not_settle_disagreement() {
+        let mut c = contract();
+        c.criteria[0].weight = 1;
+        c.criteria[0].anchors[1].points = 99;
+        c.criteria[1].weight = 99;
+        let a = judgment(&c);
+        let mut b = a.clone();
+        b.judgments[0].anchor_id = "intent_half".into();
+        let result = score(&c, &a, &b).unwrap();
+        assert_eq!(result.current.lower_percent, 99.9);
+        assert_eq!(result.current.upper_percent, 99.9);
+        assert_eq!(result.current.percent, None);
+        assert_eq!(result.status, "review");
+        assert_eq!(result.current.coverage_percent, 99.0);
+        assert_eq!(result.criteria[0].lower_points, 99);
+        assert_eq!(result.criteria[0].upper_points, 100);
+        assert_eq!(result.disagreements, vec!["intent"]);
+    }
+
+    #[test]
+    fn historical_scoring_and_evidence_gates_keep_original_scale_and_text() {
+        let c = contract();
+        let a = judgment(&c);
+        for version in ["0.2.0", "0.3.0", "0.4.0", "0.5.0"] {
+            let mut report =
+                aggregate_for_version(version, &c, "contract", "red apple", "answer", &a, &a)
+                    .unwrap();
+            assert_eq!(report.engine_version, version);
+            assert_eq!(report.current.percent, Some(100.0));
+            assert_eq!(report.future.as_ref().unwrap().percent, Some(100.0));
+            assert_eq!(report.interpretation, LEGACY_INTERPRETATION);
+            apply_evidence_gate(&mut report, &["principle".into()]).unwrap();
+            assert_eq!(report.current.percent, None);
+            assert_eq!(report.current.lower_percent, 40.0);
+            assert_eq!(report.current.upper_percent, 100.0);
+            assert_eq!(report.future.as_ref().unwrap().percent, Some(100.0));
+            assert!(!report.interpretation.contains("99.9"));
+        }
+        assert!(
+            aggregate_for_version("0.7.0", &c, "contract", "red apple", "answer", &a, &a,)
+                .unwrap_err()
+                .contains("Unsupported scoring engine version")
+        );
+        let mut unsupported = score(&c, &a, &a).unwrap();
+        unsupported.engine_version = "0.7.0".into();
+        let unchanged = unsupported.clone();
+        assert!(apply_evidence_gate(&mut unsupported, &["principle".into()]).is_err());
+        assert_eq!(unsupported, unchanged);
     }
 
     #[test]
@@ -489,12 +603,15 @@ mod tests {
         assert_eq!(report.current.coverage_percent, 40.0);
         assert_eq!(
             (report.current.lower_percent, report.current.upper_percent),
-            (40.0, 100.0)
+            (40.0, MAX_OFFICIAL_PERCENT)
         );
         assert_eq!(report.criteria[1].status, "evidence_unresolved");
         assert_eq!(report.criteria[1].awarded_points, None);
         assert_eq!(report.criteria[1].openai.anchor_id, "principle_full");
-        assert_eq!(report.future.as_ref().unwrap().percent, Some(100.0));
+        assert_eq!(
+            report.future.as_ref().unwrap().percent,
+            Some(MAX_OFFICIAL_PERCENT)
+        );
         assert!(report.disagreements.is_empty());
         let original = report.clone();
         apply_evidence_gate(&mut report, &["principle".into()]).unwrap();
@@ -522,7 +639,7 @@ mod tests {
         let a = judgment(&c);
         let mut report = score(&c, &a, &a).unwrap();
         apply_evidence_gate(&mut report, &["hypothesis".into()]).unwrap();
-        assert_eq!(report.current.percent, Some(100.0));
+        assert_eq!(report.current.percent, Some(MAX_OFFICIAL_PERCENT));
         assert_eq!(report.future.unwrap().percent, None);
     }
 
@@ -538,14 +655,14 @@ mod tests {
         assert_eq!(result.current.coverage_percent, 40.0);
         assert_eq!(
             (result.current.lower_percent, result.current.upper_percent),
-            (70.0, 100.0)
+            (70.0, MAX_OFFICIAL_PERCENT)
         );
         assert_eq!(result.disagreements, vec!["principle"]);
         assert_eq!(result.criteria[1].awarded_points, None);
     }
 
     #[test]
-    fn all_unresolved_retains_zero_to_hundred_bounds() {
+    fn all_unresolved_retains_zero_to_official_ceiling_bounds() {
         let c = contract();
         let mut a = judgment(&c);
         for row in &mut a.judgments {
@@ -558,7 +675,7 @@ mod tests {
         assert_eq!(result.current.coverage_percent, 0.0);
         assert_eq!(
             (result.current.lower_percent, result.current.upper_percent),
-            (0.0, 100.0)
+            (0.0, MAX_OFFICIAL_PERCENT)
         );
         assert!(result.disagreements.is_empty());
     }
@@ -603,7 +720,7 @@ mod tests {
         let after = score(&c, &a, &a).unwrap();
         assert_eq!(before.current, after.current);
         assert_eq!(before.future.unwrap().percent, Some(0.0));
-        assert_eq!(after.future.unwrap().percent, Some(100.0));
+        assert_eq!(after.future.unwrap().percent, Some(MAX_OFFICIAL_PERCENT));
     }
 
     #[test]
@@ -614,7 +731,7 @@ mod tests {
         b.judgments[2].anchor_id = "hypothesis_zero".into();
         let result = score(&c, &a, &b).unwrap();
         assert_eq!(result.status, "review");
-        assert_eq!(result.current.percent, Some(100.0));
+        assert_eq!(result.current.percent, Some(MAX_OFFICIAL_PERCENT));
         assert_eq!(result.future.unwrap().percent, None);
     }
 

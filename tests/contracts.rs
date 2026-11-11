@@ -147,7 +147,7 @@ fn lock_deserialization_rejects_unknown_fields() {
 fn red_fixture_meets_present_rubric_without_a_future_proposal() {
     let report = evaluate_fixture(include_str!("../examples/rust/apple-red.fixture.json"));
     assert_eq!(report.status, "ready");
-    assert_eq!(report.current.percent, Some(100.0));
+    assert_eq!(report.current.percent, Some(99.9));
     assert_eq!(report.future.unwrap().percent, Some(0.0));
 }
 
@@ -182,7 +182,7 @@ fn future_hypothesis_does_not_inflate_present_correctness() {
     let red = evaluate_fixture(include_str!("../examples/rust/apple-red.fixture.json"));
     let future = evaluate_fixture(include_str!("../examples/rust/apple-future.fixture.json"));
     assert_eq!(future.current, red.current);
-    assert_eq!(future.future.unwrap().percent, Some(100.0));
+    assert_eq!(future.future.unwrap().percent, Some(99.9));
     assert_eq!(future.status, "ready");
 }
 
@@ -195,7 +195,7 @@ fn disagreement_is_a_visible_range_not_a_compromise_score() {
     assert_eq!(report.current.percent, None);
     assert_eq!(report.current.coverage_percent, 70.0);
     assert_eq!(report.current.lower_percent, 85.0);
-    assert_eq!(report.current.upper_percent, 100.0);
+    assert_eq!(report.current.upper_percent, 99.9);
     assert_eq!(report.disagreements, vec!["principle"]);
 }
 

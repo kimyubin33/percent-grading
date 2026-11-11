@@ -18,6 +18,7 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: python benchmarks/generate.py --check
+      - run: python benchmarks/adversarial/generate.py --check
       - run: cargo run --locked --example embed
       - run: cargo run --locked -- api examples/integration/compile.request.json
       - run: node --test sdk/javascript/test/client.test.mjs

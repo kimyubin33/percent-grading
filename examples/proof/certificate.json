@@ -1,0 +1,40 @@
+{
+  "format": "percent-grading-truth-table-v1",
+  "policy_hash": "dd957173d652ab2c653628d545158563288683ce40f57ab30287fac2e16e07e0",
+  "answer_hash": "060d9d103221ea9e0bcaf55fb0e58b01b80c737c8bc2719d1a47f736948bd493",
+  "answer_excerpt": "((P) AND (P -> Q)) -> (Q)",
+  "rows": [
+    {
+      "assignment": 0,
+      "premises": [
+        false,
+        true
+      ],
+      "conclusion": false
+    },
+    {
+      "assignment": 1,
+      "premises": [
+        true,
+        false
+      ],
+      "conclusion": false
+    },
+    {
+      "assignment": 2,
+      "premises": [
+        false,
+        true
+      ],
+      "conclusion": true
+    },
+    {
+      "assignment": 3,
+      "premises": [
+        true,
+        true
+      ],
+      "conclusion": true
+    }
+  ]
+}

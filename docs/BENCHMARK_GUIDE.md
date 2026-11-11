@@ -108,6 +108,24 @@ The bundled holdout cases are public and authored within the same small project.
 
 The original evidence workflow remains optional. A benchmark without an evidence pack measures the grading contract and model judgments without asserting that a source audit took place. A benchmark with a pack applies the same deterministic evidence gate as ordinary evidence-mode grading.
 
+## Freeze a regression gate
+
+Version 0.6 adds `benchmark_gate::GatePolicy` and the `benchmark-gate` CLI. A gate binds to the exact suite hash, recomputes the benchmark from its trials, and checks declared thresholds overall, in every declared split, and in every observed category. It never accepts a caller-supplied summary as evidence of passing.
+
+The [adversarial corpus](../benchmarks/adversarial/README.md) contains three additional development tasks with 24 cases and a complete example [gate policy](../benchmarks/adversarial/gate-policy.json). Its manual results intentionally fail:
+
+```text
+cargo run --locked -- benchmark-gate benchmarks/adversarial/suite.json benchmarks/adversarial/manual-results.json benchmarks/adversarial/gate-policy.json --out local-runs/adversarial-gate.json
+```
+
+The report is saved before the CLI returns **exit code 3**, meaning the gate failed as expected. Invalid data returns **2**; a passing gate returns **0**. The JSON/HTTP API instead returns a successful evaluation envelope containing `result.gate.passed: false` for a failed gate.
+
+Policies specify minimum distinct cases and repeats, minimum coverage and accepted accuracy, maximum wrong settled awards and wrong agreements, maximum failed/indeterminate relations, and required categories with minimum case counts. Repeats do not inflate distinct-case counts. A missing metric denominator cannot pass even with a zero threshold. Raw criterion anchors drive relations; the 99.9 official ceiling and any cosmetic proof badge cannot hide a regression.
+
+The Rust `development_smoke` constructor explicitly permits manual fixtures. The `release_candidate` constructor additionally requires API-origin records, at least two repeats, distinct development/holdout tasks, and at least one relation check. All gates require complete `split: "all"` results. An experiment intended for a gate must therefore explicitly use `--split all`; the ordinary runner's development-only default does not satisfy a full-suite gate. Keep holdout expectations and threshold choices frozen before a final combined evaluation.
+
+A policy hash detects changes; it does not attest that thresholds were chosen before seeing outcomes. An `api_run` label and run IDs do not authenticate provider execution. Inspect actual archived records and independently review expectations before interpreting a passing experiment. Neither mode is automatic deployment approval or a claim of educational validity, subgroup fairness, or universal robustness.
+
 ## Next experimental step
 
 Inspect the sixty authored cases and their criterion expectations before making paid calls. Correct task ambiguity first. Run the development plan with explicit models and bounded attempts, inspect every failure class, and preserve the resulting records. Use a separate held-out run to evaluate the final revision, without selecting only favorable model responses.

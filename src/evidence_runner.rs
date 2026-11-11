@@ -162,11 +162,11 @@ fn output(dir: &Path, id: &str, pack: &EvidencePack, cached: bool) -> Value {
 pub fn replay(dir: &Path) -> Result<Value, String> {
     let snapshot: Snapshot = read_json(&dir.join("input.json"))?;
     let mut expected = identity(&snapshot.lock, &snapshot.input, &snapshot.identity.config)?;
-    // 0.5 adds experiment and application interfaces without changing the 0.4
-    // evidence prompt, schema, or aggregation. Keep old audit identities intact.
+    // 0.5 and 0.6 leave the 0.4 evidence prompt, schema, and aggregation
+    // unchanged. Preserve old audit identities independently of score ceilings.
     // The full comparison below still rejects any prompt or input mismatch.
-    if snapshot.identity.engine_version == "0.4.0" {
-        expected.engine_version = "0.4.0".into();
+    if matches!(snapshot.identity.engine_version.as_str(), "0.4.0" | "0.5.0") {
+        expected.engine_version = snapshot.identity.engine_version.clone();
     }
     if !equal(&expected, &snapshot.identity)? {
         return Err("Evidence run identity does not match its inputs or engine version".into());
@@ -457,6 +457,36 @@ mod tests {
                 .unwrap_err()
                 .contains("identity")
         );
+        clean(&dir);
+    }
+
+    #[test]
+    fn version_05_audits_replay_without_migrating_their_identity() {
+        let (lock, input, config, dir) = setup();
+        let expected = review(&input);
+        let result = run_with(&lock, &input, &config, &dir, |p, _, _, _, _, _| {
+            Ok(response(&expected, p))
+        })
+        .unwrap();
+        let current = PathBuf::from(result["run_directory"].as_str().unwrap());
+        let mut legacy: Snapshot = read_json(&current.join("input.json")).unwrap();
+        legacy.identity.engine_version = "0.5.0".into();
+        let legacy_id = legacy.identity.run_id().unwrap();
+        let legacy_dir = dir.join(&legacy_id);
+        write_new(&legacy_dir.join("input.json"), &legacy).unwrap();
+        for name in [
+            "openai.response.json",
+            "claude.response.json",
+            "evidence.json",
+        ] {
+            fs::copy(current.join(name), legacy_dir.join(name)).unwrap();
+        }
+        let before = fs::read(legacy_dir.join("input.json")).unwrap();
+        let restored = replay(&legacy_dir).unwrap();
+        assert_eq!(restored["cached"], true);
+        assert_eq!(restored["run_id"], legacy_id);
+        assert_eq!(restored["pack_hash"], result["pack_hash"]);
+        assert_eq!(fs::read(legacy_dir.join("input.json")).unwrap(), before);
         clean(&dir);
     }
 

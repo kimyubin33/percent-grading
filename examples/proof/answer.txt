@@ -1,0 +1,2 @@
+((P) AND (P -> Q)) -> (Q)
+If P is true and P implies Q is true then Q must be true: material implication is false precisely when P is true and Q is false. That counterexample is excluded by the second premise. The attached truth table enumerates all four assignments in the declared Boolean model.

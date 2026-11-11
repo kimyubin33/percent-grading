@@ -72,8 +72,15 @@ Messages may become more specific without changing the error code. Integrations 
 | `evidence_policy` | `lock`, `source` | `policy` |
 | `evidence_prepare` | `lock`, `policy`, `dossier` | `input` |
 | `evidence_aggregate` | `lock`, `input`, `openai`, `claude` | `pack` and imported-review origin |
+| `proof_policy` | `lock`, `source` | `policy`, a task-bound checked proof challenge |
+| `proof_prompt` | `lock`, `policy`, `answer` | Offline certificate `system`, `user`, and `schema` |
+| `proof_evaluate` | `lock`, `policy`, `answer`, `certificate`, `openai`, `claude`, optional `evidence` | Recomputed official `report`, scoped `verification`, optional `celebration` |
+| `benchmark_gate` | `suite`, `results`, `policy` | `gate`, a recomputed report with `passed`, `violations`, and the underlying benchmark |
 
 `lock` and `evidence` are complete checked objects, not filenames. Every operation revalidates their applicable bindings. `openai` and `claude` in `evaluate` are complete grading judgments; in `evidence_aggregate` they are complete source-review records. Imported records do not establish that either provider was called.
+
+
+The four new 0.6 operations are offline and do not require `allow_live`. A failed benchmark gate is a valid evaluation result (`200` with `result.gate.passed: false`), not a transport error. The CLI `benchmark-gate` saves its report and returns exit code **3** for a failed gate; malformed inputs return **2**. An invalid proof certificate returns `validation_failed`; a valid certificate with incomplete ordinary grading returns no celebration. See the [proof guide](PROOF_GUIDE.md) and [adversarial corpus](../benchmarks/adversarial/README.md).
 
 `grade.config` uses the same `RunConfig` as the Rust runner:
 
@@ -153,3 +160,7 @@ node --test sdk/javascript/test/client.test.mjs
 The application decides who may submit answers, author rubrics, select evidence, and read reports. This adapter does not implement accounts, classroom membership, per-user billing, a durable job queue, or production deployment. It does not validate arbitrary source authenticity or make the two judges semantically independent.
 
 Keep the full profile and review states when designing a UI. A `null` final percentage means that the profile is unresolved, not that the learner scored zero. Future exploration remains separate from present correctness. Preserve the policy and evidence identities when exporting results so a later revision can be traced.
+
+New Rust 0.6 official grades and score bounds are capped at **99.9**. Coverage, benchmark accuracy, and raw anchor points retain their original units. An optional `celebration.display_percent` of **10,000** is cosmetic: never substitute it for the official score, and show its explanatory message. Capping can make unresolved interval endpoints equal; `status` and a `null` final score still require review. Historical saved runs retain their original scale. See [score policy](SCORE_POLICY.md).
+
+The host must authorize proof-challenge authors and freeze their approved mappings before accepting answers. The service validates hashes and formal entailment, not instructor identity, chronology, natural-language formalization, or novel discoveries. Gate policies likewise require host review; a hash binds a threshold choice without proving it was chosen before seeing results.

@@ -1,0 +1,4 @@
+낱말 ProofChallenge: version*, criterion*, variables*, premises*, conclusion*
+
+장면 ModusPonensChallenge
+  ProofChallenge modus_ponens_certificate: version 1, criterion proof, variables P Q, premises P + P -> Q, conclusion Q

@@ -2,6 +2,7 @@
 export const API_VERSION = "percent-grading-api-v1";
 const OPERATIONS = new Set([
   "compile", "prompt", "evaluate", "grade", "evidence_policy", "evidence_prepare", "evidence_aggregate",
+  "proof_policy", "proof_prompt", "proof_evaluate", "benchmark_gate",
 ]);
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 let sequence = 0;
@@ -134,5 +135,9 @@ export function createClient({ baseUrl = "http://127.0.0.1:8787", token, timeout
     prompt: (input, options) => request({ ...input, operation: "prompt" }, options),
     evaluate: (input, options) => request({ ...input, operation: "evaluate" }, options),
     grade: (input, options) => request({ ...input, operation: "grade" }, options),
+    proofPolicy: (input, options) => request({ ...input, operation: "proof_policy" }, options),
+    proofPrompt: (input, options) => request({ ...input, operation: "proof_prompt" }, options),
+    proofEvaluate: (input, options) => request({ ...input, operation: "proof_evaluate" }, options),
+    benchmarkGate: (input, options) => request({ ...input, operation: "benchmark_gate" }, options),
   });
 }

@@ -1,5 +1,6 @@
 use percent_grading::{
-    VERSION, benchmark, benchmark_runner, contract, discovery, evidence, evidence_runner, grading,
+    VERSION, benchmark, benchmark_gate, benchmark_runner, contract, discovery, evidence,
+    evidence_runner, grading, proof,
     providers::Limits,
     research, revision,
     runner::{self, RunConfig},
@@ -29,8 +30,12 @@ const HELP: &str = r#"Percent Grading: a checked contract and exactly two AI pro
   percent-grading evaluate CONTRACT.json ANSWER.txt OPENAI.json CLAUDE.json [--evidence EVIDENCE.json]
   percent-grading grade CONTRACT.json ANSWER.txt --openai-model MODEL --claude-model MODEL [--research RESEARCH.json | --evidence EVIDENCE.json] [API_OPTIONS]
   percent-grading replay RUN_DIRECTORY
+  percent-grading proof-policy CONTRACT.json CHALLENGE.aha --out POLICY.json
+  percent-grading proof-prompt CONTRACT.json POLICY.json ANSWER.txt
+  percent-grading proof-evaluate CONTRACT.json POLICY.json ANSWER.txt CERTIFICATE.json OPENAI.json CLAUDE.json [--evidence EVIDENCE.json]
   percent-grading benchmark-validate SUITE.json
   percent-grading benchmark SUITE.json RESULTS.json --out REPORT.json
+  percent-grading benchmark-gate SUITE.json RESULTS.json POLICY.json --out REPORT.json
   percent-grading benchmark-plan SUITE.json --openai-model MODEL --claude-model MODEL --max-api-calls N [--split development] [--repeats 1] [API_OPTIONS] --out PLAN.json
   percent-grading benchmark-run SUITE.json --openai-model MODEL --claude-model MODEL --max-api-calls N [--split development] [--repeats 1] [API_OPTIONS]
   percent-grading api REQUEST.json [--allow-live false] [--runs-dir local-runs/api]
@@ -39,7 +44,8 @@ const HELP: &str = r#"Percent Grading: a checked contract and exactly two AI pro
 API_OPTIONS: --runs-dir DIR --max-output-tokens 4096 --max-attempts 1 --timeout-seconds 60
 Grade and audit-evidence call AI APIs and incur provider usage. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Both providers receive the same inputs independently.
 Benchmark-run also calls the two providers within its declared attempt budget. Its expectations never enter judge prompts; repeated trials retain all outcomes. API grade operations can call providers only with --allow-live true. Serve requires a separate PERCENT_GRADING_API_TOKEN (at least 32 ASCII characters) and binds only to loopback. Browser frontends should call their own backend rather than exposing tokens.
-Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Evidence sources and search logs are supplied records; preparation does not fetch or certify them. Imported reviews and demo fixtures do not attest provider execution. Revision creates a pending plan for every declared cohort member, not a completed regrade. Existing files and saved judgments are never overwritten."#;
+Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Evidence sources and search logs are supplied records; preparation does not fetch or certify them. Imported reviews and demo fixtures do not attest provider execution. Revision creates a pending plan for every declared cohort member, not a completed regrade. Existing files and saved judgments are never overwritten.
+New official score profiles are capped at 99.9%; raw anchor points and coverage still use 0..100. Historical runs replay with their original score rules. Proof operations are offline and verify only a bounded propositional challenge, not arbitrary mathematical proofs. Their 10,000% celebration is separate from the official grade. Benchmark-gate writes its report and exits 3 when valid results fail the supplied gate; malformed inputs exit 2."#;
 
 fn options(args: &[String], allowed: &[&str]) -> Result<BTreeMap<String, String>, String> {
     if !args.len().is_multiple_of(2) {
@@ -94,6 +100,55 @@ fn allow_live(opts: &BTreeMap<String, String>) -> Result<bool, String> {
 
 fn run(args: &[String]) -> Result<Value, String> {
     match args.first().map(String::as_str) {
+        Some("proof-policy") if args.len() >= 3 => {
+            let opts = options(&args[3..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let source = runner::read_text(Path::new(&args[2]), 32 * 1024)?;
+            let policy = proof::compile_policy(&lock, &source)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &policy)?;
+            Ok(json!({"status":"proof_policy_compiled","output":target,"policy":policy}))
+        }
+        Some("proof-prompt") if args.len() == 4 => {
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let policy = runner::read_json(Path::new(&args[2]))?;
+            let answer = runner::read_text(Path::new(&args[3]), runner::MAX_ANSWER_BYTES as u64)?;
+            let prompt = proof::certificate_prompt(&lock, &policy, &answer)?;
+            serde_json::to_value(prompt).map_err(|e| e.to_string())
+        }
+        Some("proof-evaluate") if args.len() >= 7 => {
+            let opts = options(&args[7..], &["--evidence"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let policy = runner::read_json(Path::new(&args[2]))?;
+            let answer = runner::read_text(Path::new(&args[3]), runner::MAX_ANSWER_BYTES as u64)?;
+            let certificate = runner::read_json(Path::new(&args[4]))?;
+            let openai = runner::read_json(Path::new(&args[5]))?;
+            let claude = runner::read_json(Path::new(&args[6]))?;
+            let evidence: Option<evidence::EvidencePack> = opts
+                .get("--evidence")
+                .map(|p| runner::read_json(Path::new(p)))
+                .transpose()?;
+            let result = proof::evaluate(
+                &lock,
+                &policy,
+                &answer,
+                &certificate,
+                &openai,
+                &claude,
+                evidence.as_ref(),
+            )?;
+            serde_json::to_value(result).map_err(|e| e.to_string())
+        }
+        Some("benchmark-gate") if args.len() >= 4 => {
+            let opts = options(&args[4..], &["--out"])?;
+            let suite = runner::read_json(Path::new(&args[1]))?;
+            let results = runner::read_json(Path::new(&args[2]))?;
+            let policy = runner::read_json(Path::new(&args[3]))?;
+            let report = benchmark_gate::evaluate(&suite, &results, &policy)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &report)?;
+            Ok(json!({"status":"benchmark_gate_reported","output":target,"gate":report}))
+        }
         Some("benchmark-validate") if args.len() == 2 => {
             let suite: benchmark::BenchmarkSuite = runner::read_json(Path::new(&args[1]))?;
             benchmark::validate(&suite)?;
@@ -465,6 +520,11 @@ fn main() {
                 && value.get("error").is_some_and(|e| !e.is_null())
             {
                 std::process::exit(2);
+            }
+            if args.first().map(String::as_str) == Some("benchmark-gate")
+                && value["gate"]["passed"] == false
+            {
+                std::process::exit(3);
             }
         }
         Err(error) => {

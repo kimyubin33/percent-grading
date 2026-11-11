@@ -1,0 +1,17 @@
+{
+  "contract_hash": "b5b739f82746a435d513b146ca9ea527d45e6b7056e5454bc7822c5e1e36b9ed",
+  "answer_hash": "060d9d103221ea9e0bcaf55fb0e58b01b80c737c8bc2719d1a47f736948bd493",
+  "judgments": [
+    {
+      "criterion_id": "proof",
+      "anchor_id": "proof_full",
+      "evidence": [
+        "((P) AND (P -> Q)) -> (Q)\nIf P is true and P implies Q is true then Q must be true: material implication is false precisely when P is true and Q is false. That counterexample is excluded by the second premise. The attached truth table enumerates all four assignments in the declared Boolean model."
+      ],
+      "reason": "Manually authored demonstration: the answer applies material implication to the two stated premises. This fixture does not attest a provider call.",
+      "conditions": [
+        "Classical Boolean semantics only."
+      ]
+    }
+  ]
+}

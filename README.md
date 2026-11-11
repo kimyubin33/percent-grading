@@ -4,7 +4,9 @@
 
 [English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Evidence guide](docs/EVIDENCE_GUIDE.md) | [Benchmarks](docs/BENCHMARK_GUIDE.md) | [Application API](docs/API_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.5.0**, with the Python 0.1.1 teaching prototype retained.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.6.0**, with the Python 0.1.1 teaching prototype retained.
+
+New in 0.6: [lessons from historical automated grading](docs/HISTORICAL_FAILURES.md), an adversarial regression gate, a [99.9 official score ceiling](docs/SCORE_POLICY.md), and a [checked proof Easter egg](docs/PROOF_GUIDE.md). The optional **10,000%** badge is a separate celebration display; it never changes the official grade.
 
 ## Why this project began
 
@@ -120,6 +122,20 @@ cargo run --locked -- api examples/integration/compile.request.json
 ```
 
 Both examples are offline. The [API guide](docs/API_GUIDE.md) covers the local HTTP token, the explicit live-call switch, browser/backend separation, and the runnable Node.js example. The local adapter is not a hosted multi-user service.
+
+## Learn from earlier grading failures
+
+Earlier essay and short-answer systems already used statistical and machine-learning methods. Research found vulnerabilities involving length, irrelevant text, shuffled keywords, and biased reference labels. Passing a finite programming test suite also leaves unchecked behavior. These findings do not mean every earlier system failed; they explain why agreement and ordinary examples are insufficient validation.
+
+Version 0.6 adds a separate **24-case adversarial corpus**, frozen benchmark gate policies, and category-level checks. A gate recomputes the benchmark from the complete results and reports failures rather than allowing a strong average to hide a weak category. The manual fixture deliberately fails. Passing a development fixture does not establish live-model reliability, and caller-supplied `api_run` labels do not attest actual provider execution. See the [historical analysis](docs/HISTORICAL_FAILURES.md) and [adversarial laboratory](benchmarks/adversarial/README.md).
+
+## Official 99.9 and a deliberate overflow joke
+
+New Rust grades cap the weighted percentage at **99.9**, while raw criterion anchors and coverage retain their existing 0–100 units. The cap is a product convention, not a probability of truth. Earlier saved runs retain their original scoring semantics during replay.
+
+A task author may lock a small propositional-logic proof challenge through RelSpec. A submitted certificate must cover every assignment of the declared Boolean variables; Rust independently recomputes every row. If the certificate passes and the answer has full, settled current-task anchors with no blocking state, `proof-evaluate` returns a separate **10,000%** celebration with an explanatory message. The official grade remains **99.9**.
+
+An AI can help prepare a certificate, but claiming a proof, mentioning Fermat, or supplying two agreeing model opinions does not trigger this feature. The first checker supports only bounded propositional logic, not arbitrary mathematics, novelty, or real-world truth. Follow the runnable [proof guide](docs/PROOF_GUIDE.md).
 
 ## Live OpenAI and Claude evaluation
 

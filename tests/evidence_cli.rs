@@ -244,11 +244,11 @@ fn missing_source_support_cannot_be_overridden_by_two_full_credit_judges() {
     assert!(report["report"]["current"]["percent"].is_null());
     assert_eq!(report["report"]["current"]["coverage_percent"], 70.0);
     assert_eq!(report["report"]["current"]["lower_percent"], 70.0);
-    assert_eq!(report["report"]["current"]["upper_percent"], 100.0);
+    assert_eq!(report["report"]["current"]["upper_percent"], 99.9);
     assert_eq!(principle(&report)["status"], "evidence_unresolved");
     assert!(principle(&report)["awarded_points"].is_null());
     assert_eq!(principle(&report)["openai"]["anchor_id"], "principle_sound");
-    assert_eq!(report["report"]["future"]["percent"], 100.0);
+    assert_eq!(report["report"]["future"]["percent"], 99.9);
 }
 
 #[test]

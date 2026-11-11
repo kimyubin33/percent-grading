@@ -91,3 +91,48 @@ test("pre-parse authentication failures may omit request identity", async () => 
   }), { status: 401 }) });
   await assert.rejects(client.compile("x"), error => error.code === "unauthorized" && error.status === 401);
 });
+
+test("proof adapters preserve the official score and separate cosmetic celebration", async () => {
+  const operations = [];
+  const result = {
+    report: { current: { percent: 99.9 } },
+    verification: { checker: "bounded-propositional-checker" },
+    celebration: { display_percent: 10000, official_percent: 99.9, message: "Celebration only; official score remains 99.9%." },
+  };
+  const client = createClient({ token, fetchImpl: async (_, options) => {
+    const request = JSON.parse(options.body);
+    operations.push(request.payload.operation);
+    return success(request, result);
+  }});
+  await client.proofPolicy({ lock: {}, source: "challenge" });
+  await client.proofPrompt({ lock: {}, policy: {}, answer: "proof" });
+  const checked = await client.proofEvaluate({ operation: "grade", lock: {}, policy: {}, answer: "proof", certificate: {}, openai: {}, claude: {} });
+  assert.deepEqual(operations, ["proof_policy", "proof_prompt", "proof_evaluate"]);
+  assert.deepEqual(checked, result);
+  assert.equal(checked.report.current.percent, 99.9);
+  assert.equal(checked.celebration.display_percent, 10000);
+});
+
+test("a failed benchmark gate is returned for inspection rather than hidden as transport failure", async () => {
+  const gate = { passed: false, status: "failed", violations: [{ code: "wrong_settled", scope: "overall", message: "Regression detected." }] };
+  const client = createClient({ token, fetchImpl: async (_, options) => {
+    const request = JSON.parse(options.body);
+    assert.equal(request.payload.operation, "benchmark_gate");
+    assert.deepEqual(request.payload.policy, { suite_hash: "frozen" });
+    return success(request, { gate });
+  }});
+  assert.deepEqual(await client.benchmarkGate({ suite: {}, results: {}, policy: { suite_hash: "frozen" } }), { gate });
+});
+
+test("invalid proof certificates fail without a retry or an invented celebration", async () => {
+  let calls = 0;
+  const client = createClient({ token, fetchImpl: async (_, options) => {
+    calls += 1;
+    const request = JSON.parse(options.body);
+    return new Response(JSON.stringify({ api_version: API_VERSION, request_id: request.request_id,
+      error: { code: "validation_failed", message: "Certificate rows do not match the challenge." } }), { status: 422 });
+  }});
+  await assert.rejects(client.proofEvaluate({ lock: {}, policy: {}, answer: "Fermat is proved", certificate: {}, openai: {}, claude: {} }),
+    error => error.code === "validation_failed" && error.status === 422);
+  assert.equal(calls, 1);
+});

@@ -103,3 +103,13 @@ Saved reports may contain the original question and answer, quotations, and prov
 The Python 0.1.1 implementation remains available as a historical prototype. It accepts manually supplied numerical judgments under its own JSON protocol. Rust 0.2.0 introduced the stricter anchor protocol and two-provider workflow. Rust 0.3.0 added optional research context while preserving the scoring rules. Rust 0.4.0 adds opt-in evidence auditing and final-score gates and preserves replay of 0.2 and 0.3 records without changing their original identities or reports. Neither Rust protocol silently accepts Python judgment files.
 
 See [the Rust guide](RUST_GUIDE.md) for the executable contract, commands, and current file formats.
+
+## Score display, regression gates, and finite proof checking
+
+Version 0.6 caps official current/future percentages and their bounds at 99.9 after the ordinary weighted-anchor calculation. Coverage and raw anchor points remain unchanged. Replay selects the saved engine's score convention before evidence gating, so historical 0.2–0.5 records retain their original reports. Equal capped bounds do not settle an unresolved judgment.
+
+`benchmark_gate` recomputes a full benchmark from a hash-bound suite and supplied trials, then checks frozen thresholds overall, for every declared split, and for every observed category. It rejects missing coverage, bad agreements, failed or indeterminate relations, and unmet category/repeat requirements according to policy. It does not authenticate imported API labels or establish that thresholds were chosen before seeing outcomes.
+
+`proof` compiles a separate task-bound RelSpec challenge and checks a complete truth-table certificate by exhaustive recomputation. Its grammar, variables, formula depth, and assignment count are bounded. A proof result can add a cosmetic 10,000% celebration only after ordinary grading and evidence gates have also succeeded with full raw current anchors. The celebration never enters score arithmetic or benchmark metrics. The checker establishes only the specified classical Boolean entailment, not natural-language meaning, novelty, or arbitrary mathematics.
+
+All new operations use the existing CLI, JSON service, local HTTP adapter, and JavaScript client. Challenge-author authorization and approval timing remain host responsibilities. See [historical analysis](HISTORICAL_FAILURES.md), [score policy](SCORE_POLICY.md), and [proof guide](PROOF_GUIDE.md).
