@@ -86,6 +86,8 @@ pub struct Identity {
     pub research_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub experiment_trial: Option<String>,
 }
 impl Identity {
     pub fn run_id(&self) -> Result<String, String> {
@@ -205,6 +207,25 @@ fn identity_with_evidence(
     research: Option<&ResearchPack>,
     evidence: Option<&EvidencePack>,
 ) -> Result<Identity, String> {
+    identity_scoped(lock, answer, config, research, evidence, None)
+}
+
+fn identity_scoped(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    research: Option<&ResearchPack>,
+    evidence: Option<&EvidencePack>,
+    trial: Option<&str>,
+) -> Result<Identity, String> {
+    if let Some(id) = trial
+        && (id.len() != 64
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+    {
+        return Err("Experiment trial ID must be a lowercase SHA-256 digest".into());
+    }
     lock.verify()?;
     validate_answer(answer)?;
     let ch = &lock.contract_hash;
@@ -233,6 +254,7 @@ fn identity_with_evidence(
         config: config.clone(),
         research_hash: research.map(|p| p.pack_hash.clone()),
         evidence_hash: evidence.map(|p| p.pack_hash.clone()),
+        experiment_trial: trial.map(str::to_owned),
     })
 }
 fn parse_response(snapshot: &Snapshot, archive: &ArchivedResponse) -> Result<Judgment, String> {
@@ -289,7 +311,7 @@ fn compute(dir: &Path, snapshot: &Snapshot) -> Result<Report, String> {
     if let Some(pack) = &snapshot.evidence {
         grading::apply_evidence_gate(&mut report, &pack.blocked_criteria)?;
     }
-    // Legacy runs retain their original scoring version and contain no evidence gate.
+    // Replayed runs retain their original engine version; 0.4 evidence gates remain active.
     report.engine_version = snapshot.identity.engine_version.clone();
     Ok(report)
 }
@@ -306,20 +328,29 @@ fn output(
 
 pub fn replay(dir: &Path) -> Result<Value, String> {
     let snapshot: Snapshot = read_json(&dir.join("input.json"))?;
-    let mut expected = identity_with_evidence(
+    let mut expected = identity_scoped(
         &snapshot.lock,
         &snapshot.answer,
         &snapshot.identity.config,
         snapshot.research.as_ref(),
         snapshot.evidence.as_ref(),
+        snapshot.identity.experiment_trial.as_deref(),
     )?;
     if snapshot.identity.engine_version == "0.2.0"
+        && snapshot.identity.experiment_trial.is_none()
         && snapshot.research.is_none()
         && snapshot.evidence.is_none()
     {
         expected.engine_version = "0.2.0".into();
-    } else if snapshot.identity.engine_version == "0.3.0" && snapshot.evidence.is_none() {
+    } else if snapshot.identity.engine_version == "0.3.0"
+        && snapshot.identity.experiment_trial.is_none()
+        && snapshot.evidence.is_none()
+    {
         expected.engine_version = "0.3.0".into();
+    } else if snapshot.identity.engine_version == "0.4.0"
+        && snapshot.identity.experiment_trial.is_none()
+    {
+        expected.engine_version = "0.4.0".into();
     }
     if serde_json::to_value(&expected).unwrap() != serde_json::to_value(&snapshot.identity).unwrap()
     {
@@ -428,19 +459,173 @@ fn run_with_evidence<F>(
     runs: &Path,
     research: Option<&ResearchPack>,
     evidence: Option<&EvidencePack>,
+    judge: F,
+) -> Result<Value, String>
+where
+    F: FnMut(Provider, &str, &str, &str, &Value, &Limits) -> Result<Response, String>,
+{
+    run_scoped(
+        lock,
+        answer,
+        config,
+        runs,
+        RunScope {
+            research,
+            evidence,
+            trial: None,
+        },
+        judge,
+    )
+}
+
+struct RunScope<'a> {
+    research: Option<&'a ResearchPack>,
+    evidence: Option<&'a EvidencePack>,
+    trial: Option<&'a str>,
+}
+
+/// A fresh, separately cached experimental trial. The trial ID is never sent to a model.
+pub fn trial_identity(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    evidence: Option<&EvidencePack>,
+    trial_id: &str,
+) -> Result<Identity, String> {
+    identity_scoped(lock, answer, config, None, evidence, Some(trial_id))
+}
+
+pub fn grade_trial(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    runs: &Path,
+    evidence: Option<&EvidencePack>,
+    trial_id: &str,
+) -> Result<Value, String> {
+    let id = trial_identity(lock, answer, config, evidence, trial_id)?.run_id()?;
+    let dir = runs.join(id);
+    if !dir.join("report.json").exists() {
+        for provider in [Provider::Openai, Provider::Claude] {
+            if !dir.join(format!("{provider}.response.json")).exists() {
+                providers::validate_credentials(provider)?;
+            }
+        }
+    }
+    run_trial_with(
+        lock,
+        answer,
+        config,
+        runs,
+        evidence,
+        trial_id,
+        providers::judge,
+    )
+}
+
+pub(crate) fn run_trial_with<F>(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    runs: &Path,
+    evidence: Option<&EvidencePack>,
+    trial_id: &str,
+    judge: F,
+) -> Result<Value, String>
+where
+    F: FnMut(Provider, &str, &str, &str, &Value, &Limits) -> Result<Response, String>,
+{
+    run_scoped(
+        lock,
+        answer,
+        config,
+        runs,
+        RunScope {
+            research: None,
+            evidence,
+            trial: Some(trial_id),
+        },
+        judge,
+    )
+}
+
+/// Read both archived judgments only after validating their saved run and report.
+pub fn read_judgments(dir: &Path) -> Result<(Judgment, Judgment), String> {
+    replay(dir)?;
+    let snapshot: Snapshot = read_json(&dir.join("input.json"))?;
+    Ok((
+        archived(dir, &snapshot, Provider::Openai)?,
+        archived(dir, &snapshot, Provider::Claude)?,
+    ))
+}
+
+/// Preflight partial experiment records without credentials, writes or transport.
+pub(crate) fn trial_pending_providers(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    runs: &Path,
+    evidence: Option<&EvidencePack>,
+    trial_id: &str,
+) -> Result<Vec<Provider>, String> {
+    let identity = trial_identity(lock, answer, config, evidence, trial_id)?;
+    let dir = runs.join(identity.run_id()?);
+    let expected = Snapshot {
+        identity,
+        lock: lock.clone(),
+        answer: answer.into(),
+        research: None,
+        evidence: evidence.cloned(),
+    };
+    if dir.join("input.json").exists() {
+        let saved: Snapshot = read_json(&dir.join("input.json"))?;
+        if serde_json::to_value(&saved).map_err(|e| e.to_string())?
+            != serde_json::to_value(&expected).map_err(|e| e.to_string())?
+        {
+            return Err("Stored experimental trial differs from its planned input".into());
+        }
+    } else if dir.join("report.json").exists()
+        || ["openai", "claude"]
+            .iter()
+            .any(|p| dir.join(format!("{p}.response.json")).exists())
+    {
+        return Err("Experimental trial responses exist without a frozen input".into());
+    }
+    let mut pending = Vec::new();
+    for provider in [Provider::Openai, Provider::Claude] {
+        if dir.join(format!("{provider}.response.json")).exists() {
+            archived(&dir, &expected, provider)?;
+        } else {
+            pending.push(provider);
+        }
+    }
+    if dir.join("report.json").exists() {
+        replay(&dir)?;
+    }
+    Ok(pending)
+}
+
+fn run_scoped<F>(
+    lock: &LockedContract,
+    answer: &str,
+    config: &RunConfig,
+    runs: &Path,
+    scope: RunScope<'_>,
     mut judge: F,
 ) -> Result<Value, String>
 where
     F: FnMut(Provider, &str, &str, &str, &Value, &Limits) -> Result<Response, String>,
 {
-    let identity = identity_with_evidence(lock, answer, config, research, evidence)?;
+    let research = scope.research;
+    let evidence = scope.evidence;
+    let identity = identity_scoped(lock, answer, config, research, evidence, scope.trial)?;
     let id = identity.run_id()?;
     let dir = runs.join(&id);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let lease_path = dir.join("running.lock");
     let mut lease = OpenOptions::new().write(true).create_new(true).open(&lease_path).map_err(|_| format!("Run is locked: {}. Another process may be running; inspect before removing a stale lock after a crash.", dir.display()))?;
-    writeln!(lease, "process {}", std::process::id()).map_err(|e| e.to_string())?;
     let _lease = Lease(lease_path);
+    writeln!(lease, "process {}", std::process::id()).map_err(|e| e.to_string())?;
     drop(lease);
     if dir.join("report.json").exists() {
         return replay(&dir);
@@ -462,6 +647,13 @@ where
     }
     let schema = grading::response_schema(&lock.contract);
     let (system, user) = build_prompt_with_evidence(lock, answer, research, evidence)?;
+    // Validate all existing archives before any new request, including a second
+    // provider's archive when the first one is unexpectedly absent.
+    for provider in [Provider::Openai, Provider::Claude] {
+        if dir.join(format!("{provider}.response.json")).exists() {
+            archived(&dir, &snapshot, provider)?;
+        }
+    }
     // Each judge sees the same data and never sees the other judge's response.
     for (provider, model) in [
         (Provider::Openai, &config.openai_model),
@@ -570,6 +762,20 @@ mod tests {
         ));
         (lock, fixture, config, dir)
     }
+    fn cleanup(dir: &Path) {
+        let resolved = fs::canonicalize(dir).unwrap();
+        let temp = fs::canonicalize(std::env::temp_dir()).unwrap();
+        assert_eq!(resolved.parent(), Some(temp.as_path()));
+        assert!(
+            resolved
+                .file_name()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| s.starts_with("percent-grading-test-"))
+        );
+        assert!(!fs::symlink_metadata(dir).unwrap().file_type().is_symlink());
+        fs::remove_dir_all(resolved).unwrap();
+    }
+
     fn response(lock: &LockedContract, fixture: &Fixture, provider: Provider) -> Response {
         let j = Judgment {
             contract_hash: lock.contract_hash.clone(),
@@ -704,7 +910,7 @@ mod tests {
         saved.evidence.as_mut().unwrap().blocked_criteria.clear();
         fs::write(run.join("input.json"), serde_json::to_vec(&saved).unwrap()).unwrap();
         assert!(replay(&run).is_err());
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
 
     #[test]
@@ -743,7 +949,7 @@ mod tests {
                 .unwrap_err()
                 .contains("Run identity does not match")
         );
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
     #[test]
     fn frozen_run_replays_without_calls_and_detects_modified_report() {
@@ -764,7 +970,7 @@ mod tests {
         let run = PathBuf::from(cached["run_directory"].as_str().unwrap());
         fs::write(run.join("report.json"), "{}").unwrap();
         assert!(replay(&run).is_err());
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
     #[test]
     fn interrupted_run_resumes_only_missing_provider() {
@@ -784,7 +990,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(calls, vec![Provider::Claude]);
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
     #[test]
     fn research_snapshot_binds_both_judges_and_survives_replay() {
@@ -849,7 +1055,7 @@ mod tests {
             .push_str(" tampered");
         fs::write(run.join("input.json"), serde_json::to_vec(&saved).unwrap()).unwrap();
         assert!(replay(&run).is_err());
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
 
     #[test]
@@ -877,7 +1083,7 @@ mod tests {
         assert_eq!(restored["report"]["engine_version"], "0.2.0");
         assert_eq!(restored["run_id"], old_id);
         assert_eq!(fs::read(old_dir.join("input.json")).unwrap(), before);
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
 
     #[test]
@@ -914,7 +1120,7 @@ mod tests {
         assert_eq!(restored["run_id"], old_id);
         assert_eq!(restored["research_hash"], research.pack_hash);
         assert_eq!(fs::read(old_dir.join("input.json")).unwrap(), before);
-        fs::remove_dir_all(dir).unwrap();
+        cleanup(&dir);
     }
 
     #[test]
@@ -939,5 +1145,85 @@ mod tests {
                 .run_id()
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn experimental_repeats_have_distinct_records_and_identical_prompts() {
+        let (lock, fixture, config, dir) = setup();
+        let first = hash(b"experiment repeat 1");
+        let second = hash(b"experiment repeat 2");
+        let mut prompts = Vec::new();
+        let mut ids = Vec::new();
+        for trial in [&first, &second] {
+            let result = run_trial_with(
+                &lock,
+                &fixture.answer,
+                &config,
+                &dir,
+                None,
+                trial,
+                |p, _, system, user, _, _| {
+                    prompts.push((system.to_owned(), user.to_owned()));
+                    Ok(response(&lock, &fixture, p))
+                },
+            )
+            .unwrap();
+            ids.push(result["run_id"].as_str().unwrap().to_owned());
+            read_judgments(Path::new(result["run_directory"].as_str().unwrap())).unwrap();
+        }
+        assert_ne!(ids[0], ids[1]);
+        assert!(prompts.iter().all(|p| p == &prompts[0]));
+        assert!(!prompts[0].1.contains(&first));
+        let restored = run_trial_with(
+            &lock,
+            &fixture.answer,
+            &config,
+            &dir,
+            None,
+            &first,
+            |_, _, _, _, _, _| panic!("same trial must resume its saved result"),
+        )
+        .unwrap();
+        assert_eq!(restored["cached"], true);
+        assert!(trial_identity(&lock, &fixture.answer, &config, None, "unsafe/id").is_err());
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn version_04_evidence_records_replay_without_silent_migration() {
+        let (lock, fixture, pack, config, dir) = evidence_fixture();
+        let result = run_with_evidence(
+            &lock,
+            &fixture.answer,
+            &config,
+            &dir,
+            None,
+            Some(&pack),
+            |p, _, _, _, _, _| Ok(response(&lock, &fixture, p)),
+        )
+        .unwrap();
+        let current = PathBuf::from(result["run_directory"].as_str().unwrap());
+        let mut legacy: Snapshot = read_json(&current.join("input.json")).unwrap();
+        legacy.identity.engine_version = "0.4.0".into();
+        let old_id = legacy.identity.run_id().unwrap();
+        let old_dir = dir.join(&old_id);
+        if old_dir != current {
+            write_new(&old_dir.join("input.json"), &legacy).unwrap();
+            for provider in [Provider::Openai, Provider::Claude] {
+                let name = format!("{provider}.response.json");
+                fs::copy(current.join(&name), old_dir.join(name)).unwrap();
+            }
+            let mut report: Report = read_json(&current.join("report.json")).unwrap();
+            report.engine_version = "0.4.0".into();
+            write_new(&old_dir.join("report.json"), &report).unwrap();
+        }
+        let restored = replay(&old_dir).unwrap();
+        assert_eq!(restored["report"]["engine_version"], "0.4.0");
+        assert_eq!(restored["evidence_hash"], pack.pack_hash);
+        legacy.identity.experiment_trial = Some(hash(b"trial forbidden in v0.4"));
+        let forged = dir.join(legacy.identity.run_id().unwrap());
+        write_new(&forged.join("input.json"), &legacy).unwrap();
+        assert!(replay(&forged).unwrap_err().contains("Run identity"));
+        cleanup(&dir);
     }
 }

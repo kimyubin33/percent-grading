@@ -6,7 +6,7 @@ Percent Grading studies how to preserve the valid parts of an answer without mis
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Chapter 17 develops the Rust 0.5.0 benchmark harness, bounded experiments, and application interfaces. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -810,3 +810,57 @@ Use the [evidence guide](../docs/EVIDENCE_GUIDE.md) to compile an evidence polic
 6. A two-pack comparison reports no changed evidence states. Has it established that both models will grade every answer identically?
 
 Worked answers: (1) Dossier validation rejects the absent substring before model review. (2) No; applicability is a semantic question evaluated separately. (3) Repetition does not create independent evidence, and exact duplicate text must be collapsed. (4) No; the deterministic evidence gate withholds the affected profile's final percentage. (5) Review and version the common evidence basis, then reassess all affected submissions consistently while preserving old results. (6) No; actual controlled answer evaluations are needed to measure judgment sensitivity.
+
+
+# 17 Testing the grader and embedding the engine
+
+## 17.1 A working program can still grade badly
+
+A test that rejects an unknown anchor proves that the implementation enforces a rule. It does not prove that the rule describes the intended learning outcome. A color-identification question should not acquire an explanation requirement merely because an explanation is easier to inspect with an AI model. A source can be correctly quoted while supporting the wrong claim. Two models can agree on the same mistaken interpretation.
+
+Version 0.5 therefore adds an experiment harness alongside the existing compiler and evidence checks. It asks whether observed judgments satisfy authored criterion expectations and relations between carefully constructed cases. The distinction between implementation tests and empirical evaluation must remain visible in documentation and reports.
+
+## 17.2 Build cases around specific failure mechanisms
+
+Start with a task whose intended answers can be inspected. Write the criterion anchors before observing model outputs. Then construct variations that test one concern at a time: a shorter equivalent answer, an incomplete explanation, a correct principle followed by an unsupported conclusion, an explicitly different condition, a contradictory answer, or an instruction that tries to change the grader's role.
+
+The bundled corpus contains ten tasks and sixty answer cases. Its expectations are authored engineering references. They have not been independently validated as an educational instrument. The manual result file deliberately includes errors and withheld judgments so the reporting machinery can be checked without paid model calls.
+
+An allowed-anchor set can represent more than one defensible interpretation. It should not become a way to hide a vague rubric. When reviewers disagree, preserve the disagreement and inspect the task. A benchmark should not force the very exact-answer rigidity that this project seeks to avoid.
+
+## 17.3 Compare transformations and report uncertainty
+
+A relation describes what should happen to one criterion when a controlled change is made. Equivalent wording may require equal points. Adding irrelevant authority language should not increase the applicable score. Adding a justified causal step may support a nondecreasing reasoning award.
+
+These relations are contextual. A longer answer that introduces a contradiction need not preserve the score of a shorter correct answer. The change must be described and reviewed before interpreting the relation as a fairness test.
+
+If either case lacks a settled criterion award, its relation is indeterminate. Treating that result as a pass would reward indiscriminate abstention. Report accepted accuracy against the authored anchors together with coverage, withheld cases, wrong agreements, and detailed failures. No one summary should erase an important failure category.
+
+## 17.4 Separate development tasks, holdout tasks, and fresh trials
+
+Split by underlying task rather than distributing paraphrases of one question across development and holdout. The structural validator rejects the same compiled contract in both splits, but cannot detect every semantic duplicate. The repository's public holdout cases demonstrate the mechanism; they are not a hidden independent test.
+
+Recorded replay returns a saved result. A fresh repeat deliberately requests another judgment under a distinct experiment-trial identity while keeping the task and answer prompt unchanged. This permits a stability study without changing the ordinary rule that a saved trial must not be rerolled until a preferred answer appears. All repeats must remain in the report.
+
+The live runner validates a plan before contacting providers. Conservative attempt reservations are written before transport and retained after failure. A resumed experiment uses its remaining allowance. These are bounded request attempts, not a fixed price or an account-wide spending policy. Token usage, latency, and provider cost still require separate inspection.
+
+## 17.5 Preserve the core when adding applications
+
+A desktop interface or web application should not copy the scoring formulas into a second implementation. Version 0.5 exposes a transport-independent JSON service around the same Rust types and validators. A loopback HTTP adapter and a small JavaScript client provide examples of how other languages can call it.
+
+The service context owns storage and live-call permission. Requests carry checked contracts, answers, and optional evidence packs. Credentials remain in the host environment. Application developers still need to decide which users may create tasks, grade submissions, and inspect results; the local adapter does not supply a classroom or identity system.
+
+Presentation is part of the correctness boundary. A missing final percentage must not be displayed as zero. A future-exploration result must not be added to present correctness. A common evidence revision should remain traceable through its original and revised identities. A well-designed API makes those distinctions available, but the application must preserve them.
+
+## 17.6 Laboratory exercises
+
+Run the offline corpus commands in the [benchmark guide](../docs/BENCHMARK_GUIDE.md), then inspect the intentional wrong agreements and relation failures. Run `cargo run --locked --example embed` to compile a contract through the service without HTTP or AI calls. The [API guide](../docs/API_GUIDE.md) adds a local Node.js integration example.
+
+1. Both judges choose an anchor outside the permitted set. Why is agreement not a successful test result?
+2. A system accepts only easy cases and withholds every difficult case. Which second measure must accompany its accepted accuracy?
+3. Two answer variants use the same task with slightly different wording. Why should they not be split across development and holdout as independent tasks?
+4. A cached trial returns the same result twice. Has this measured fresh model stability?
+5. A client times out during a paid request. Why must the client avoid blindly retrying to obtain a new judgment?
+6. A UI converts `null` to `0` before drawing a score bar. Which distinction has it lost?
+
+Worked answers: (1) Both can share a mistake relative to the authored criterion expectation. (2) Coverage and the distribution of withheld cases. (3) Shared task content can leak into tuning. (4) No; it has checked replay, not a new provider decision. (5) The server may still be running and may already have incurred usage; inspect the saved run and preserve the first response. (6) Unresolved assessment has been confused with a settled zero award.

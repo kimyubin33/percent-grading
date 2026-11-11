@@ -2,9 +2,9 @@
 
 **Recognize valid reasoning without hiding an unsupported conclusion.**
 
-[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Evidence guide](docs/EVIDENCE_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Evidence guide](docs/EVIDENCE_GUIDE.md) | [Benchmarks](docs/BENCHMARK_GUIDE.md) | [Application API](docs/API_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.4.0**, with the Python 0.1.1 teaching prototype retained.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.5.0**, with the Python 0.1.1 teaching prototype retained.
 
 ## Why this project began
 
@@ -101,6 +101,26 @@ cargo run --locked -- inspect-evidence local-runs/apple.lock.json local-runs/app
 
 This example uses clearly labeled **synthetic source material and manual reviews**, not measured AI judgments or validated scientific sources. The [evidence guide](docs/EVIDENCE_GUIDE.md) covers live auditing, grading with `--evidence`, source limitations, and common reassessment plans after an evidence-policy revision. The new workflow records source-review decisions; it does not certify truth or exhaustive retrieval.
 
+## Test the grader and integrate it into applications
+
+Version 0.5 adds ten authored tasks with sixty answer cases, an offline benchmark evaluator, and a bounded two-provider experiment runner. Reports expose wrong accepted anchors, withholding, provider agreement errors, transformation checks, and repeated-trial stability. The supplied result fixture is manually authored and deliberately contains failures; it is not measured model performance.
+
+```text
+cargo run --locked -- benchmark-validate benchmarks/suite.json
+cargo run --locked -- benchmark benchmarks/suite.json benchmarks/manual-results.json --out local-runs/benchmark.manual-report.json
+```
+
+The [benchmark guide](docs/BENCHMARK_GUIDE.md) explains development/holdout tasks, expectations kept out of model prompts, fresh repeat identities, attempt budgets that persist across resume, and interpretation limits.
+
+The same Rust engine can now be called through a versioned JSON API, a loopback HTTP service, or the included JavaScript client with TypeScript declarations. This provides an integration boundary for desktop applications and web backends. No separate scoring rules are introduced by the transport.
+
+```text
+cargo run --locked --example embed
+cargo run --locked -- api examples/integration/compile.request.json
+```
+
+Both examples are offline. The [API guide](docs/API_GUIDE.md) covers the local HTTP token, the explicit live-call switch, browser/backend separation, and the runnable Node.js example. The local adapter is not a hosted multi-user service.
+
 ## Live OpenAI and Claude evaluation
 
 Configure `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in your environment, then provide model IDs supported by your accounts:
@@ -131,6 +151,9 @@ The guide explains local records, replay, offline judgment evaluation, and failu
 | Crossref bibliographic discovery | Implemented; metadata only |
 | Claim-to-source links, two-provider source reviews, and evidence gating | Implemented; semantic reviews remain fallible |
 | Evidence revision comparison and common cohort reassessment plans | Implemented; plans do not automatically regrade |
+| Authored benchmark corpus, batch evaluation, and detailed failure reports | Implemented; fixture metrics are not model accuracy |
+| Fresh repeated live experiments with persistent attempt budgets | Implemented; live validation remains to be performed |
+| Rust library, versioned JSON API, loopback HTTP, and JavaScript client | Implemented; application access control and hosting remain host responsibilities |
 | Automatic verification of theories or exhaustive semantic discovery | Not implemented |
 | Empirical advantage over existing grading | Not established |
 
@@ -141,6 +164,8 @@ The adapters require compatible model access and credentials for live use. Offli
 - [Rust guide: contract, CLI, API setup, and audit records](docs/RUST_GUIDE.md)
 - [Research guide: discovery, catalogs, and frozen selection](docs/RESEARCH_GUIDE.md)
 - [Evidence guide: claim support, unresolved sources, and reassessment](docs/EVIDENCE_GUIDE.md)
+- [Benchmark guide: authored expectations, experiments, and failure reports](docs/BENCHMARK_GUIDE.md)
+- [API guide: Rust embedding, local HTTP, and JavaScript integration](docs/API_GUIDE.md)
 - [English textbook, including the Rust, selection, and evidence chapters](book/Percent-Grading-Textbook.md)
 - [Architecture and trust boundaries](docs/ARCHITECTURE.md)
 - [Experimental validation](docs/EXPERIMENTS.md)

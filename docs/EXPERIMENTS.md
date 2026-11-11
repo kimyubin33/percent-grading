@@ -1,6 +1,6 @@
 # Experimental plan
 
-No benchmark results are claimed.
+No live benchmark results are claimed. Version 0.5 supplies an executable [benchmark workflow](BENCHMARK_GUIDE.md) and a [ten-task, sixty-case authored corpus](../benchmarks/README.md). Its manual result fixture demonstrates failure reporting; it is not measured model performance. The larger study below remains a research plan.
 
 ## Hypotheses
 

@@ -1,0 +1,11 @@
+{
+  "name": "@percent-grading/client",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free client for the Percent Grading v1 JSON service",
+  "exports": { ".": { "types": "./index.d.mts", "import": "./index.mjs" } },
+  "scripts": { "test": "node --test test/client.test.mjs" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

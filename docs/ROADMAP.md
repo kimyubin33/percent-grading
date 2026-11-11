@@ -42,9 +42,20 @@ Search results remain candidates until a curator inspects the underlying source.
 
 This is a source-review protocol and deterministic enforcement layer. It does not authenticate imported web text, prove the independence of all sources, guarantee retrieval completeness, or establish scientific truth. The revision plan tracks pending work; it does not automatically execute reassessments.
 
+## 0.5.0 - Benchmark experiments and application interfaces
+
+- Validate versioned benchmark suites with complete criterion expectations, task-level development/holdout assignment, and within-task transformation checks.
+- Include ten authored tasks and sixty answer cases, plus manual result fixtures with deliberate failures.
+- Report accepted-anchor errors, withholding, wrong provider agreement, relation outcomes, and fresh repeated-trial stability against authored expectations.
+- Plan and run bounded two-provider experiments with immutable trial identities, conservative attempt reservations, interrupted-run resume, and saved-result verification.
+- Expose the common Rust engine through a versioned JSON service, a loopback HTTP adapter, and a JavaScript client with TypeScript declarations.
+- Provide offline Rust/Node.js examples, English/Korean introductions, and textbook chapter 17.
+
+The corpus is small and publicly authored. It exercises the experiment protocol, not independent grading validity. No paid provider evaluation is claimed. The local API adapter leaves user accounts, task authorization, production hosting, and application-level controls to its host.
+
 ## Next — Controlled live validation
 
-Run public, consented examples using explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation.
+Use the 0.5 experiment runner with independently reviewed public or consented examples and explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation. Distinguish a small protocol fixture from a sufficiently reviewed evaluation corpus.
 
 Acceptance: publish a reproducible run manifest and reviewed failure cases. Distinguish live model judgments from authored fixtures and software tests.
 

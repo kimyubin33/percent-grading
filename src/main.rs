@@ -1,8 +1,9 @@
 use percent_grading::{
-    VERSION, contract, discovery, evidence, evidence_runner, grading,
+    VERSION, benchmark, benchmark_runner, contract, discovery, evidence, evidence_runner, grading,
     providers::Limits,
     research, revision,
     runner::{self, RunConfig},
+    server, service,
 };
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
@@ -28,9 +29,16 @@ const HELP: &str = r#"Percent Grading: a checked contract and exactly two AI pro
   percent-grading evaluate CONTRACT.json ANSWER.txt OPENAI.json CLAUDE.json [--evidence EVIDENCE.json]
   percent-grading grade CONTRACT.json ANSWER.txt --openai-model MODEL --claude-model MODEL [--research RESEARCH.json | --evidence EVIDENCE.json] [API_OPTIONS]
   percent-grading replay RUN_DIRECTORY
+  percent-grading benchmark-validate SUITE.json
+  percent-grading benchmark SUITE.json RESULTS.json --out REPORT.json
+  percent-grading benchmark-plan SUITE.json --openai-model MODEL --claude-model MODEL --max-api-calls N [--split development] [--repeats 1] [API_OPTIONS] --out PLAN.json
+  percent-grading benchmark-run SUITE.json --openai-model MODEL --claude-model MODEL --max-api-calls N [--split development] [--repeats 1] [API_OPTIONS]
+  percent-grading api REQUEST.json [--allow-live false] [--runs-dir local-runs/api]
+  percent-grading serve [--bind 127.0.0.1:8787] [--allow-live false] [--runs-dir local-runs/api]
 
 API_OPTIONS: --runs-dir DIR --max-output-tokens 4096 --max-attempts 1 --timeout-seconds 60
-Only grade and audit-evidence call AI APIs and incur provider usage. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Both providers receive the same inputs independently.
+Grade and audit-evidence call AI APIs and incur provider usage. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Both providers receive the same inputs independently.
+Benchmark-run also calls the two providers within its declared attempt budget. Its expectations never enter judge prompts; repeated trials retain all outcomes. API grade operations can call providers only with --allow-live true. Serve requires a separate PERCENT_GRADING_API_TOKEN (at least 32 ASCII characters) and binds only to loopback. Browser frontends should call their own backend rather than exposing tokens.
 Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Evidence sources and search logs are supplied records; preparation does not fetch or certify them. Imported reviews and demo fixtures do not attest provider execution. Revision creates a pending plan for every declared cohort member, not a completed regrade. Existing files and saved judgments are never overwritten."#;
 
 fn options(args: &[String], allowed: &[&str]) -> Result<BTreeMap<String, String>, String> {
@@ -75,8 +83,113 @@ fn run_config(opts: &BTreeMap<String, String>) -> Result<RunConfig, String> {
         },
     })
 }
+fn allow_live(opts: &BTreeMap<String, String>) -> Result<bool, String> {
+    opts.get("--allow-live")
+        .map(|v| {
+            v.parse()
+                .map_err(|_| "--allow-live must be true or false".into())
+        })
+        .unwrap_or(Ok(false))
+}
+
 fn run(args: &[String]) -> Result<Value, String> {
     match args.first().map(String::as_str) {
+        Some("benchmark-validate") if args.len() == 2 => {
+            let suite: benchmark::BenchmarkSuite = runner::read_json(Path::new(&args[1]))?;
+            benchmark::validate(&suite)?;
+            Ok(
+                json!({"status":"valid","suite_hash":benchmark::suite_hash(&suite)?,"tasks":suite.tasks.len(),"cases":suite.tasks.iter().map(|t| t.cases.len()).sum::<usize>(),"interpretation":"Authored expectations and task splits are structurally valid; this does not measure live-model accuracy."}),
+            )
+        }
+        Some("benchmark") if args.len() >= 3 => {
+            let opts = options(&args[3..], &["--out"])?;
+            let suite = runner::read_json(Path::new(&args[1]))?;
+            let results = runner::read_json(Path::new(&args[2]))?;
+            let report = benchmark::evaluate(&suite, &results)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &report)?;
+            Ok(
+                json!({"status":"benchmark_reported","output":target,"report_hash":report.report_hash,"origin":report.origin,"split":report.split,"repeats":report.repeats,"metrics":report.metrics,"relation_metrics":report.relation_metrics,"interpretation":report.interpretation}),
+            )
+        }
+        Some(command @ ("benchmark-plan" | "benchmark-run")) if args.len() >= 2 => {
+            let mut allowed = vec![
+                "--openai-model",
+                "--claude-model",
+                "--runs-dir",
+                "--max-output-tokens",
+                "--max-attempts",
+                "--timeout-seconds",
+                "--split",
+                "--repeats",
+                "--max-api-calls",
+            ];
+            if command == "benchmark-plan" {
+                allowed.push("--out");
+            }
+            let opts = options(&args[2..], &allowed)?;
+            let suite = runner::read_json(Path::new(&args[1]))?;
+            required(&opts, "--max-api-calls")?;
+            let config = run_config(&opts)?;
+            let config_options = benchmark_runner::Options {
+                split: opts
+                    .get("--split")
+                    .cloned()
+                    .unwrap_or_else(|| "development".into()),
+                repeats: number(&opts, "--repeats", 1)?,
+                max_api_calls: number(&opts, "--max-api-calls", 0)?,
+            };
+            if command == "benchmark-plan" {
+                let plan = benchmark_runner::prepare_plan(&suite, &config, &config_options)?;
+                let target = required(&opts, "--out")?;
+                runner::write_new(Path::new(target), &plan)?;
+                Ok(json!({"status":"benchmark_planned","output":target,"plan":plan}))
+            } else {
+                benchmark_runner::run(
+                    &suite,
+                    &config,
+                    &config_options,
+                    Path::new(
+                        opts.get("--runs-dir")
+                            .map(String::as_str)
+                            .unwrap_or("local-runs/benchmarks"),
+                    ),
+                )
+            }
+        }
+        Some("api") if args.len() >= 2 => {
+            let opts = options(&args[2..], &["--allow-live", "--runs-dir"])?;
+            let body = runner::read_text(Path::new(&args[1]), 2 * 1024 * 1024)?;
+            let context = service::ServiceContext {
+                runs_dir: opts
+                    .get("--runs-dir")
+                    .map(Into::into)
+                    .unwrap_or_else(|| "local-runs/api".into()),
+                allow_live: allow_live(&opts)?,
+            };
+            serde_json::to_value(service::handle_json(&context, body.as_bytes()))
+                .map_err(|e| e.to_string())
+        }
+        Some("serve") => {
+            let opts = options(&args[1..], &["--bind", "--allow-live", "--runs-dir"])?;
+            let bind = opts
+                .get("--bind")
+                .map(String::as_str)
+                .unwrap_or("127.0.0.1:8787")
+                .parse()
+                .map_err(|_| "--bind must be an IP socket address")?;
+            let token = std::env::var("PERCENT_GRADING_API_TOKEN")
+                .map_err(|_| "Set PERCENT_GRADING_API_TOKEN for local API authentication")?;
+            let context = service::ServiceContext {
+                runs_dir: opts
+                    .get("--runs-dir")
+                    .map(Into::into)
+                    .unwrap_or_else(|| "local-runs/api".into()),
+                allow_live: allow_live(&opts)?,
+            };
+            server::serve(bind, context, token)?;
+            Ok(json!({"status":"server_stopped"}))
+        }
         Some("compile") if args.len() >= 2 => {
             let opts = options(&args[2..], &["--out"])?;
             let source = runner::read_text(Path::new(&args[1]), 256 * 1024)?;
@@ -343,10 +456,17 @@ fn main() {
         return;
     }
     match run(&args) {
-        Ok(value) => println!(
-            "{}",
-            serde_json::to_string_pretty(&value).expect("serializable result")
-        ),
+        Ok(value) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&value).expect("serializable result")
+            );
+            if args.first().map(String::as_str) == Some("api")
+                && value.get("error").is_some_and(|e| !e.is_null())
+            {
+                std::process::exit(2);
+            }
+        }
         Err(error) => {
             eprintln!("error: {error}");
             std::process::exit(2);

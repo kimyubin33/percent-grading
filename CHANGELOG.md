@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 - 2026-11-12
+
+- Added a strict benchmark suite/result format, criterion expectations, within-task relations, development/holdout splits, and detailed failure and coverage reports.
+- Added ten authored tasks and sixty cases with reproducible manual results that deliberately exercise errors and withheld outcomes; these are not live model performance measurements.
+- Added bounded live experiment planning and batch execution, distinct fresh-repeat identities, persistent conservative attempt reservations, resume, and saved-result verification.
+- Added a transport-independent versioned JSON service, opt-in live grading, a loopback-only authenticated HTTP adapter, and application-facing error envelopes.
+- Added a dependency-free JavaScript client with TypeScript declarations, no automatic retries, and Rust/Node.js integration examples.
+- Updated English/Korean introductions, technical guides, and textbook chapter 17.
+
+The benchmark references and holdout split are authored fixtures, not independent educational validation. Application identity, production hosting, and account-wide spending controls remain outside the local adapter. No paid live-provider evaluation was performed for this release.
+
 ## 0.4.0 - 2026-11-12
 
 - Added a real RelSpec/AHAA evidence-policy profile with claim coverage, conditions, inclusion and exclusion rules, origin thresholds, and context limits.

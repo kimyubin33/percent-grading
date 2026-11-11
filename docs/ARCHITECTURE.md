@@ -1,5 +1,15 @@
 # Architecture
 
+## Application and experiment interfaces
+
+Version 0.5 adds two callers of the same Rust grading core. The `benchmark` and `benchmark_runner` modules validate authored suites, execute bounded independent trials, and report errors against explicit expectations. The `service` module accepts a versioned request envelope independently of HTTP; `server` provides a bounded loopback adapter. The CLI and JavaScript client call these interfaces without introducing separate score arithmetic.
+
+Benchmark expectations remain outside provider prompts. An experiment trial adds a recorded identity to request the same answer afresh, while replay/resume retains that trial's first response. Attempt reservations are persisted before transport and remain consumed after failure. These controls apply within the declared experiment, not across all experiments or the provider account.
+
+The service context supplies storage and the live-call permission. Clients supply complete checked objects and answer data, not filesystem paths or provider credentials. The HTTP boundary requires its own bearer token, rejects browser Origin requests, and binds only to loopback. Browser applications use their own backend for authorization and presentation. `null` final percentages and future/current separation must survive every presentation layer.
+
+See the [benchmark guide](BENCHMARK_GUIDE.md) for dataset/metric semantics and the [API guide](API_GUIDE.md) for the operation envelope and integration limits.
+
 ## Two layers of constraints
 
 The Rust implementation uses the real compiler from [RelSpec, now named AHAA](https://github.com/kimyubin33/relspec-lang). The upstream source is pinned at `de1e956555dcfafc5b62324ea6ed3f62655c6ba3`. Its parser and checker produce checked scene records. Percent Grading then applies an additional grading-specific semantic contract.

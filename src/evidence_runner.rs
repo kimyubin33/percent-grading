@@ -161,7 +161,13 @@ fn output(dir: &Path, id: &str, pack: &EvidencePack, cached: bool) -> Value {
 /// Verify archived responses and recompute the complete pack without API calls.
 pub fn replay(dir: &Path) -> Result<Value, String> {
     let snapshot: Snapshot = read_json(&dir.join("input.json"))?;
-    let expected = identity(&snapshot.lock, &snapshot.input, &snapshot.identity.config)?;
+    let mut expected = identity(&snapshot.lock, &snapshot.input, &snapshot.identity.config)?;
+    // 0.5 adds experiment and application interfaces without changing the 0.4
+    // evidence prompt, schema, or aggregation. Keep old audit identities intact.
+    // The full comparison below still rejects any prompt or input mismatch.
+    if snapshot.identity.engine_version == "0.4.0" {
+        expected.engine_version = "0.4.0".into();
+    }
     if !equal(&expected, &snapshot.identity)? {
         return Err("Evidence run identity does not match its inputs or engine version".into());
     }
@@ -405,6 +411,52 @@ mod tests {
         assert_eq!(cached["cached"], true);
         let api_cached = audit(&lock, &input, &config, &dir).unwrap();
         assert_eq!(api_cached["pack_hash"], cached["pack_hash"]);
+        clean(&dir);
+    }
+
+    #[test]
+    fn version_04_audits_replay_without_rewriting_and_unknown_versions_fail() {
+        let (lock, input, config, dir) = setup();
+        let expected = review(&input);
+        let result = run_with(&lock, &input, &config, &dir, |p, _, _, _, _, _| {
+            Ok(response(&expected, p))
+        })
+        .unwrap();
+        let current = PathBuf::from(result["run_directory"].as_str().unwrap());
+        let mut legacy: Snapshot = read_json(&current.join("input.json")).unwrap();
+        legacy.identity.engine_version = "0.4.0".into();
+        let legacy_id = legacy.identity.run_id().unwrap();
+        let legacy_dir = dir.join(&legacy_id);
+        if legacy_dir != current {
+            write_new(&legacy_dir.join("input.json"), &legacy).unwrap();
+            for name in [
+                "openai.response.json",
+                "claude.response.json",
+                "evidence.json",
+            ] {
+                fs::copy(current.join(name), legacy_dir.join(name)).unwrap();
+            }
+        }
+        let before = fs::read(legacy_dir.join("input.json")).unwrap();
+        let restored = replay(&legacy_dir).unwrap();
+        assert_eq!(restored["cached"], true);
+        assert_eq!(restored["run_id"], legacy_id);
+        assert_eq!(restored["pack_hash"], result["pack_hash"]);
+        assert_eq!(fs::read(legacy_dir.join("input.json")).unwrap(), before);
+
+        let mut unknown = legacy.clone();
+        unknown.identity.engine_version = "0.3.0".into();
+        let unknown_dir = dir.join(unknown.identity.run_id().unwrap());
+        write_new(&unknown_dir.join("input.json"), &unknown).unwrap();
+        assert!(replay(&unknown_dir).unwrap_err().contains("engine version"));
+        legacy.identity.prompt_version.push_str("-changed");
+        let changed_prompt_dir = dir.join(legacy.identity.run_id().unwrap());
+        write_new(&changed_prompt_dir.join("input.json"), &legacy).unwrap();
+        assert!(
+            replay(&changed_prompt_dir)
+                .unwrap_err()
+                .contains("identity")
+        );
         clean(&dir);
     }
 

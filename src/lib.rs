@@ -1,3 +1,5 @@
+pub mod benchmark;
+pub mod benchmark_runner;
 pub mod contract;
 pub mod discovery;
 pub mod evidence;
@@ -8,5 +10,7 @@ pub mod relspec;
 pub mod research;
 pub mod revision;
 pub mod runner;
+pub mod server;
+pub mod service;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

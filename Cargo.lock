@@ -210,6 +210,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 
 [[package]]
+name = "httpdate"
+version = "1.0.3"
+
+[[package]]
 name = "hyper"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -221,6 +225,7 @@ dependencies = [
  "http",
  "http-body",
  "httparse",
+ "httpdate",
  "itoa",
  "pin-project-lite",
  "smallvec",
@@ -498,14 +503,18 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "percent-grading"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "aha",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "reqwest",
  "ring",
  "rustls",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

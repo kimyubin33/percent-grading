@@ -2,9 +2,9 @@
 
 **타당한 추론을 인정하면서도, 근거 없는 결론을 드러내는 채점 프로그램입니다.**
 
-[English](README.md) | [한국어](README.ko.md) | [Rust 실행 안내](docs/RUST_GUIDE.md) | [이론 검색·선택 안내](docs/RESEARCH_GUIDE.md) | [근거 검토 안내](docs/EVIDENCE_GUIDE.md) | [영문 교재](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust 실행 안내](docs/RUST_GUIDE.md) | [이론 검색·선택 안내](docs/RESEARCH_GUIDE.md) | [근거 검토 안내](docs/EVIDENCE_GUIDE.md) | [평가 실험](docs/BENCHMARK_GUIDE.md) | [앱·웹 연결](docs/API_GUIDE.md) | [영문 교재](book/Percent-Grading-Textbook.md)
 
-제안자: **김유빈(Yubin Kim)**. 현재 구현은 **Rust 0.4.0**이며, 초기 Python 0.1.1 교육용 프로토타입도 보존합니다.
+제안자: **김유빈(Yubin Kim)**. 현재 구현은 **Rust 0.5.0**이며, 초기 Python 0.1.1 교육용 프로토타입도 보존합니다.
 
 ## 왜 만들기 시작했는가
 
@@ -101,6 +101,28 @@ cargo run --locked -- inspect-evidence local-runs/apple.lock.json local-runs/app
 이 예시는 **합성 자료와 사람이 작성한 검토 결과**로 검증 절차를 보여 줍니다. 실제 논문이나 AI의 정확도를 검증했다는 뜻이 아닙니다. 프로그램은 입력한 원문의 인용 일치 여부를 검사하지만 해당 웹페이지를 자동으로 가져와 진위를 인증하지 않습니다. 검색 기록과 자료의 독립성 표기도 작성자가 제공하며, 두 AI가 같은 오류를 범할 가능성도 남습니다.
 
 실제 자료 검토는 `audit-evidence`, 이후 답안 채점은 `grade --evidence`로 실행합니다. 구체적인 영어 사용법과 제한은 [근거 검토 안내](docs/EVIDENCE_GUIDE.md)에 있습니다.
+
+## 채점기를 시험하고 앱·웹에 연결하기
+
+0.5에서는 **10문제·60답안으로 구성한 평가셋**, 일괄 평가 실행기, 오류 보고서를 추가했습니다. 타당한 대안, 부분 정답, 그럴듯한 오답, 조건 변경, 모순, 지시문 삽입 등을 검사합니다. 보고서에는 잘못 확정한 항목, 판정 보류, 두 모델의 잘못된 합의, 표현 변화에 따른 판정 변화와 반복 실험의 안정성이 구분되어 표시됩니다.
+
+```text
+cargo run --locked -- benchmark-validate benchmarks/suite.json
+cargo run --locked -- benchmark benchmarks/suite.json benchmarks/manual-results.json --out local-runs/benchmark.manual-report.json
+```
+
+포함된 결과 파일은 오류 처리도 확인하도록 일부 실패를 넣어 작성한 **수동 예제**입니다. 실제 OpenAI·Claude의 채점 정확도를 측정한 결과가 아닙니다. 개발용 7문제와 검사 용도 3문제를 나누었지만, 공개된 소규모 평가셋 자체가 독립적인 성능 검증을 보장하지는 않습니다.
+
+실제 API 실험은 실행 계획과 최대 호출 시도 수를 먼저 확인한 후 진행합니다. 반복 실험은 같은 답안을 새로운 실험 ID로 평가하며, 중단 후 재개할 때도 기존 응답과 이미 예약한 호출 예산을 유지합니다. 기대 정답이나 허용 앵커는 모델 프롬프트에 포함하지 않습니다. [평가 실험 안내](docs/BENCHMARK_GUIDE.md)에 전체 명령과 해석 방법이 있습니다.
+
+앱·웹에서 재사용할 수 있도록 **Rust 라이브러리, 버전이 있는 JSON API, 로컬 HTTP 서버, JavaScript 클라이언트와 TypeScript 선언**도 제공합니다. 같은 채점 엔진을 호출하므로 화면이나 전송 방식이 바뀌어도 점수 계산 규칙은 유지됩니다.
+
+```text
+cargo run --locked --example embed
+cargo run --locked -- api examples/integration/compile.request.json
+```
+
+위 두 예제는 API 비용 없이 실행됩니다. 로컬 HTTP 서버는 인증 토큰을 요구하며 기본적으로 실제 AI 호출을 허용하지 않습니다. 웹 화면은 자체 백엔드를 통해 연결하고, 서비스 토큰과 제공자 API 키를 공개 프런트엔드에 넣지 않습니다. [앱·웹 연결 안내](docs/API_GUIDE.md)에서 Node.js 예제와 사용 범위를 확인할 수 있습니다.
 
 ## OpenAI와 Claude 연결
 
