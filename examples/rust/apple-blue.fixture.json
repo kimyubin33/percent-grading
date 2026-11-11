@@ -1,0 +1,97 @@
+{
+  "answer": "The specified apple is blue. Apparent color depends on illumination, wavelength-selective surface reflection and absorption, and the observer. The reflected light reaching the eye determines the perceived color. Different illumination or an altered surface would be a separate scenario.\n",
+  "openai": [
+    {
+      "criterion_id": "intent",
+      "anchor_id": "intent_wrong",
+      "evidence": [
+        "The specified apple is blue."
+      ],
+      "reason": "Blue contradicts the red specimen under the fixed present conditions.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "principle",
+      "anchor_id": "principle_sound",
+      "evidence": [
+        "Apparent color depends on illumination, wavelength-selective surface reflection and absorption, and the observer."
+      ],
+      "reason": "This general optical principle is sound even though its application is unsupported.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "reasoning",
+      "anchor_id": "reasoning_fragment",
+      "evidence": [
+        "The reflected light reaching the eye determines the perceived color."
+      ],
+      "reason": "A useful causal fragment is supplied but no blue reflectance of the stated specimen is established.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "conditions",
+      "anchor_id": "conditions_partial",
+      "evidence": [
+        "Different illumination or an altered surface would be a separate scenario."
+      ],
+      "reason": "The alternative conditions are recognized but do not repair the unsupported present blue claim.",
+      "conditions": [
+        "An altered surface or illumination would require a different scenario"
+      ]
+    },
+    {
+      "criterion_id": "future",
+      "anchor_id": "future_absent",
+      "evidence": [],
+      "reason": "No concrete future intervention and test are proposed.",
+      "conditions": []
+    }
+  ],
+  "claude": [
+    {
+      "criterion_id": "intent",
+      "anchor_id": "intent_wrong",
+      "evidence": [
+        "The specified apple is blue."
+      ],
+      "reason": "Blue contradicts the red specimen under the fixed present conditions.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "principle",
+      "anchor_id": "principle_sound",
+      "evidence": [
+        "Apparent color depends on illumination, wavelength-selective surface reflection and absorption, and the observer."
+      ],
+      "reason": "This general optical principle is sound even though its application is unsupported.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "reasoning",
+      "anchor_id": "reasoning_fragment",
+      "evidence": [
+        "The reflected light reaching the eye determines the perceived color."
+      ],
+      "reason": "A useful causal fragment is supplied but no blue reflectance of the stated specimen is established.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "conditions",
+      "anchor_id": "conditions_partial",
+      "evidence": [
+        "Different illumination or an altered surface would be a separate scenario."
+      ],
+      "reason": "The alternative conditions are recognized but do not repair the unsupported present blue claim.",
+      "conditions": [
+        "An altered surface or illumination would require a different scenario"
+      ]
+    },
+    {
+      "criterion_id": "future",
+      "anchor_id": "future_absent",
+      "evidence": [],
+      "reason": "No concrete future intervention and test are proposed.",
+      "conditions": []
+    }
+  ]
+}

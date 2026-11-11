@@ -10,4 +10,4 @@ Place README.md at the repository root. README.ko.md provides the Korean introdu
 
 Keep .github/workflows/tests.yml so hosted tests run after publication. Do not include credentials, local raw runs, caches or private learner data.
 
-The English 0.1.1 package passed all 16 local tests on Python 3.14.4 on 2026-11-11. The included GitHub Actions workflow runs the checks on pushes and pull requests; see the repository's Actions tab for hosted results. These tests verify the implementation's specified behavior, not the validity of AI grading judgments.
+Version 0.2.0 passed 48 Rust tests on Windows with Rust 1.99.1, plus formatting and Clippy checks, on 2026-11-12. The retained Python prototype passed its 16 tests on Python 3.14.4. The included GitHub Actions workflow checks Rust on Windows and Ubuntu and Python on three versions; see the repository's Actions tab for hosted results. These tests verify specified software behavior, not the validity of AI grading judgments. No paid live-provider evaluation was performed for this release.

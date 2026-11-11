@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/*TITLE*/ 연결망</title>
+<style>
+  :root {
+    --bg: #1c1d29; --panel: #24263a; --line: #34374f; --text: #e4e6f1; --dim: #9096b0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.5 "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  .box { position: absolute; background: color-mix(in srgb, var(--panel) 92%, transparent);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  #top { top: 12px; left: 12px; width: 230px; max-height: calc(100% - 24px); overflow: auto; }
+  #top h1 { font-size: 14px; margin: 0 0 2px; word-break: break-all; }
+  #top .sub { color: var(--dim); margin-bottom: 8px; }
+  #search { width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: inherit; }
+  #legend { margin-top: 8px; }
+  #legend label { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer; user-select: none; }
+  #legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #legend .count { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .keys { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); }
+  .keys i { display: inline-block; width: 26px; height: 0; vertical-align: middle; margin-right: 6px;
+    border-top: 2px solid #aab; }
+  .keys i.dash { border-top-style: dashed; }
+  #side { top: 12px; right: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto; display: none; }
+  #side h2 { font-size: 14px; margin: 0; word-break: break-all; }
+  #side .kind { color: var(--dim); margin-bottom: 6px; }
+  #side .detail { white-space: pre-wrap; word-break: break-all; margin-bottom: 8px; }
+  #side .warn { color: #f2cc60; margin-bottom: 8px; }
+  #side h3 { font-size: 12px; color: var(--dim); margin: 8px 0 2px; font-weight: 600; }
+  #side ul { list-style: none; margin: 0; padding: 0; }
+  #side li { padding: 2px 0; cursor: pointer; display: flex; gap: 6px; align-items: baseline; }
+  #side li:hover .name { text-decoration: underline; }
+  #side li .rel { color: var(--dim); flex: none; }
+  #side li .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+  #side .go { color: #6ea8fe; cursor: pointer; }
+  #tip { position: absolute; pointer-events: none; display: none; max-width: 320px; z-index: 5;
+    background: #0f1018; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; white-space: pre-wrap; }
+  #empty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: var(--dim); }
+  @media (max-width: 720px) { #top { width: 180px; } #side { width: 220px; } }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="empty">이 명세에는 아직 이을 것이 없습니다.</div>
+<div id="top" class="box">
+  <h1>/*TITLE*/</h1>
+  <div class="sub" id="summary"></div>
+  <input id="search" type="search" placeholder="이름 찾기" autocomplete="off">
+  <div id="legend"></div>
+  <div class="keys">
+    <div><i></i>컴파일러가 확인한 관계</div>
+    <div><i class="dash"></i>글 속의 언급 (확인되지 않음)</div>
+    <div style="margin-top:4px">점을 누르면 이어진 것만 보입니다. 빈 곳을 누르면 돌아옵니다.</div>
+  </div>
+</div>
+<div id="side" class="box"></div>
+<div id="tip"></div>
+<script>
+"use strict";
+const DATA = /*GRAPH*/{"nodes":[],"edges":[]};
+
+const COLORS = {
+  "대상": "#39c5e0", "행위": "#e8b04a", "문장": "#e6e8f4", "조건문": "#b48cf2", "규칙": "#b48cf2",
+  "정의": "#6ea8fe", "미지": "#f78c4b", "조건": "#8b93a7", "검사": "#8b93a7", "관측": "#8b93a7",
+  "목표": "#57c785", "기준": "#f472b6", "단위": "#2dd4bf", "사건": "#c084fc", "장면": "#ff8fab", "글": "#5d6381",
+};
+const STATUS = { "보장": "#57c785", "가능": "#f2cc60", "불가능": "#e5534b" };
+const ORDER = ["장면", "대상", "행위", "문장", "조건문", "규칙", "정의", "미지", "조건", "검사", "관측", "목표", "기준", "단위", "사건", "글"];
+const vscode = typeof acquireVsCodeApi === "function" ? acquireVsCodeApi() : null;
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const tip = document.getElementById("tip");
+const side = document.getElementById("side");
+
+const nodes = DATA.nodes.map((n, i) => ({ ...n, index: i, x: 0, y: 0, vx: 0, vy: 0, links: [] }));
+const byId = new Map(nodes.map((n) => [n.id, n]));
+const edges = DATA.edges
+  .map((e) => ({ ...e, source: byId.get(e.from), target: byId.get(e.to) }))
+  .filter((e) => e.source && e.target);
+for (const e of edges) { e.source.links.push(e); e.target.links.push(e); }
+for (const n of nodes) {
+  n.r = 4 + 1.8 * Math.sqrt(n.links.length);
+  // 처음 자리는 원 위에 고르게. 같은 입력이면 같은 그림이 되도록 난수를 쓰지 않습니다.
+  const angle = n.index * 2.399963, radius = 14 * Math.sqrt(n.index + 1);
+  n.x = Math.cos(angle) * radius; n.y = Math.sin(angle) * radius;
+}
+
+const hidden = new Set();
+let selected = null, hover = null, query = "";
+let view = { x: 0, y: 0, k: 1 };
+let alpha = 1;
+
+// 선으로 이어진 덩어리의 수. 여럿이면 명세가 서로 이어지지 않은 부분들로 나뉘어 있습니다.
+function components() {
+  const seen = new Set(); let count = 0;
+  for (const start of nodes) {
+    if (seen.has(start)) continue;
+    count++;
+    const stack = [start]; seen.add(start);
+    while (stack.length) {
+      const n = stack.pop();
+      for (const e of n.links) {
+        const other = e.source === n ? e.target : e.source;
+        if (!seen.has(other)) { seen.add(other); stack.push(other); }
+      }
+    }
+  }
+  return count;
+}
+document.getElementById("summary").textContent = `점 ${nodes.length}개 · 선 ${edges.length}개 · 덩어리 ${components()}개`;
+document.getElementById("empty").style.display = nodes.length ? "none" : "flex";
+
+// ── 범례 ────────────────────────────────────────────────────────────
+const legend = document.getElementById("legend");
+for (const kind of ORDER) {
+  const count = nodes.filter((n) => n.kind === kind).length;
+  if (!count) continue;
+  const label = document.createElement("label");
+  label.innerHTML = `<input type="checkbox" checked><span class="dot" style="background:${COLORS[kind]}"></span>` +
+    `<span>${kind}</span><span class="count">${count}</span>`;
+  label.querySelector("input").addEventListener("change", (event) => {
+    if (event.target.checked) hidden.delete(kind); else hidden.add(kind);
+    if (selected && hidden.has(selected.kind)) select(null);
+    alpha = Math.max(alpha, 0.3);
+  });
+  legend.appendChild(label);
+}
+document.getElementById("search").addEventListener("input", (event) => {
+  query = event.target.value.trim();
+});
+
+const visible = (n) => !hidden.has(n.kind);
+const shown = (e) => visible(e.source) && visible(e.target);
+const color = (n) => (n.status && STATUS[n.status]) || COLORS[n.kind] || "#999";
+
+// ── 자리 잡기: 서로 밀어내고, 선으로 당기고, 가운데로 모읍니다 ──────────
+function step() {
+  const live = nodes.filter(visible);
+  for (let i = 0; i < live.length; i++) {
+    const a = live[i];
+    for (let j = i + 1; j < live.length; j++) {
+      const b = live[j];
+      let dx = a.x - b.x, dy = a.y - b.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 0.01) { dx = (i % 2 ? 1 : -1) * 0.1; dy = 0.1; d2 = 0.02; }
+      if (d2 > 640000) continue;
+      const force = (2600 * alpha) / d2;
+      const d = Math.sqrt(d2);
+      const fx = (dx / d) * force, fy = (dy / d) * force;
+      a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+    }
+  }
+  for (const e of edges) {
+    if (!shown(e)) continue;
+    const a = e.source, b = e.target;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const rest = 78 + a.r + b.r;
+    const strength = (e.checked ? 0.05 : 0.02) * alpha;
+    const f = (d - rest) * strength;
+    const fx = (dx / d) * f, fy = (dy / d) * f;
+    a.vx += fx; a.vy += fy; b.vx -= fx; b.vy -= fy;
+  }
+  for (const n of live) {
+    n.vx -= n.x * 0.006 * alpha; n.vy -= n.y * 0.006 * alpha;
+    if (n === dragNode) { n.vx = 0; n.vy = 0; continue; }
+    n.vx *= 0.82; n.vy *= 0.82;
+    n.x += n.vx; n.y += n.vy;
+  }
+  alpha = Math.max(0, alpha * 0.992 - 0.0004);
+}
+
+// ── 그리기 ──────────────────────────────────────────────────────────
+function resize() {
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(canvas.clientWidth * ratio);
+  canvas.height = Math.round(canvas.clientHeight * ratio);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+}
+window.addEventListener("resize", resize);
+
+function near(n) {
+  if (!selected) return true;
+  return n === selected || selected.links.some((e) => e.source === n || e.target === n);
+}
+function degreeRange(text) {
+  const numbers = (text.match(/[0-9.]+/g) || []).map(Number);
+  return numbers.length ? [Math.min(...numbers), Math.max(...numbers)] : null;
+}
+
+function draw() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(w / 2 + view.x, h / 2 + view.y);
+  ctx.scale(view.k, view.k);
+
+  for (const e of edges) {
+    if (!shown(e)) continue;
+    const on = selected && (e.source === selected || e.target === selected);
+    if (selected && !on) continue;
+    ctx.beginPath();
+    ctx.moveTo(e.source.x, e.source.y);
+    ctx.lineTo(e.target.x, e.target.y);
+    ctx.setLineDash(e.checked ? [] : [4 / view.k, 4 / view.k]);
+    ctx.lineWidth = (on ? 1.6 : 1) / view.k;
+    ctx.strokeStyle = on ? "rgba(228,230,241,0.75)" : e.checked ? "rgba(150,158,200,0.28)" : "rgba(150,158,200,0.2)";
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  const labels = [];
+  for (const n of nodes) {
+    if (!visible(n)) continue;
+    const lit = near(n);
+    const match = query && n.label.includes(query);
+    ctx.globalAlpha = lit ? 1 : 0.12;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = color(n);
+    ctx.fill();
+    // 정도: 문장과 조건문 둘레의 호. 80%이면 둘레의 80%를 그립니다.
+    // 100%는 따로 표시하지 않습니다. 정도를 적은 문장만 눈에 띄게 합니다.
+    const range = n.degree && n.degree !== "100%" ? degreeRange(n.degree) : null;
+    if (range) {
+      const start = -Math.PI / 2;
+      ctx.lineWidth = 2.2 / view.k;
+      ctx.strokeStyle = "rgba(242,204,96,0.35)";
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 3 / view.k, start, start + (Math.PI * 2 * range[1]) / 100); ctx.stroke();
+      ctx.strokeStyle = "#f2cc60";
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 3 / view.k, start, start + (Math.PI * 2 * range[0]) / 100); ctx.stroke();
+    }
+    if (n.warnings) {
+      ctx.lineWidth = 1.5 / view.k; ctx.strokeStyle = "#f2cc60"; ctx.setLineDash([2 / view.k, 2 / view.k]);
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 2 / view.k, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (n === selected || n === hover || match) {
+      ctx.lineWidth = 2 / view.k; ctx.strokeStyle = match ? "#ffffff" : "rgba(255,255,255,0.8)";
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 6 / view.k, 0, Math.PI * 2); ctx.stroke();
+    }
+    const wanted = match || n === hover || (selected ? lit : n.kind !== "글" || view.k > 1.6);
+    if (wanted) labels.push(n);
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = `${12 / view.k}px "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  // 이어진 것이 많은 점부터 이름을 적고, 이미 적은 이름과 겹치면 적지 않습니다.
+  labels.sort((a, b) => (b === selected) - (a === selected) || (b === hover) - (a === hover) || b.links.length - a.links.length);
+  const placed = [];
+  for (const n of labels) {
+    const text = n.degree && n.degree !== "100%" ? `${n.label} (${n.degree})` : n.label;
+    const width = ctx.measureText(text).width, height = 14 / view.k;
+    const box = { x0: n.x - width / 2, x1: n.x + width / 2, y0: n.y + n.r + 5 / view.k, y1: n.y + n.r + 5 / view.k + height };
+    if (n !== selected && n !== hover && placed.some((p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0)) continue;
+    placed.push(box);
+    ctx.lineWidth = 3 / view.k; ctx.strokeStyle = "rgba(28,29,41,0.9)";
+    ctx.strokeText(text, n.x, n.y + n.r + 5 / view.k);
+    ctx.fillStyle = n.kind === "글" ? "#aab0c8" : "#e4e6f1";
+    ctx.fillText(text, n.x, n.y + n.r + 5 / view.k);
+  }
+  if (selected) {
+    ctx.font = `${10.5 / view.k}px "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
+    ctx.textBaseline = "middle";
+    for (const e of selected.links) {
+      if (!shown(e)) continue;
+      const text = e.label || (e.kind === "역할" ? "" : e.kind);
+      if (!text) continue;
+      const x = (e.source.x + e.target.x) / 2, y = (e.source.y + e.target.y) / 2;
+      ctx.lineWidth = 3 / view.k; ctx.strokeStyle = "rgba(28,29,41,0.95)";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = "#f2cc60";
+      ctx.fillText(text, x, y);
+    }
+  }
+  ctx.restore();
+}
+
+function frame() {
+  if (alpha > 0.002 || dragNode) step();
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ── 고르기와 옆 칸 ──────────────────────────────────────────────────
+const escape = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function select(node) {
+  selected = node;
+  if (!node) { side.style.display = "none"; return; }
+  const groups = new Map();
+  for (const e of node.links) {
+    const outgoing = e.source === node;
+    const other = outgoing ? e.target : e.source;
+    const name = e.kind === "역할" ? e.label : e.label ? `${e.kind} (${e.label})` : e.kind;
+    const title = outgoing ? name : `← ${name}`;
+    if (!groups.has(title)) groups.set(title, []);
+    groups.get(title).push({ other, checked: e.checked });
+  }
+  let html = `<h2>${escape(node.label)}</h2><div class="kind">${node.kind}` +
+    (node.line ? ` · <span class="go" data-line="${node.line}">${node.line}행</span>` : "") + `</div>`;
+  if (node.degree) html += `<div class="detail">정도 ${escape(node.degree)}</div>`;
+  if (node.detail) html += `<div class="detail">${escape(node.detail)}</div>`;
+  if (node.warnings) html += `<div class="warn">본문 점검 알림 ${node.warnings}개</div>`;
+  if (!groups.size) html += `<div class="kind">이어진 것이 없습니다.</div>`;
+  for (const [title, list] of groups) {
+    html += `<h3>${escape(title)}</h3><ul>`;
+    for (const { other, checked } of list) {
+      html += `<li data-id="${escape(other.id)}"><span class="dot" style="background:${color(other)}"></span>` +
+        `<span class="name">${escape(other.label)}</span><span class="rel">${other.kind}${checked ? "" : " · 언급"}</span></li>`;
+    }
+    html += `</ul>`;
+  }
+  side.innerHTML = html;
+  side.style.display = "block";
+}
+side.addEventListener("click", (event) => {
+  const go = event.target.closest(".go");
+  if (go && vscode) { vscode.postMessage({ type: "reveal", line: Number(go.dataset.line) }); return; }
+  const item = event.target.closest("li[data-id]");
+  if (item) select(byId.get(item.dataset.id));
+});
+
+// ── 마우스 ──────────────────────────────────────────────────────────
+function toWorld(event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left - rect.width / 2 - view.x) / view.k,
+    y: (event.clientY - rect.top - rect.height / 2 - view.y) / view.k,
+  };
+}
+function pick(point) {
+  let best = null, bestDistance = Infinity;
+  for (const n of nodes) {
+    if (!visible(n) || !near(n)) continue;
+    const d = Math.hypot(n.x - point.x, n.y - point.y) - n.r;
+    if (d < 6 / view.k && d < bestDistance) { best = n; bestDistance = d; }
+  }
+  return best;
+}
+let dragNode = null, panning = null, moved = false;
+canvas.addEventListener("pointerdown", (event) => {
+  canvas.setPointerCapture(event.pointerId);
+  moved = false;
+  const node = pick(toWorld(event));
+  if (node) dragNode = node; else panning = { x: event.clientX - view.x, y: event.clientY - view.y };
+  canvas.classList.add("dragging");
+});
+canvas.addEventListener("pointermove", (event) => {
+  const point = toWorld(event);
+  if (dragNode) {
+    moved = true; dragNode.x = point.x; dragNode.y = point.y; alpha = Math.max(alpha, 0.25);
+  } else if (panning) {
+    moved = true; view.x = event.clientX - panning.x; view.y = event.clientY - panning.y;
+  } else {
+    hover = pick(point);
+    if (hover) {
+      tip.textContent = `${hover.kind} · ${hover.label}` + (hover.degree ? `\n정도 ${hover.degree}` : "") +
+        (hover.detail ? `\n${hover.detail}` : "") + (hover.line ? `\n${hover.line}행` : "");
+      tip.style.display = "block";
+      tip.style.left = Math.min(event.clientX + 14, window.innerWidth - 330) + "px";
+      tip.style.top = event.clientY + 14 + "px";
+    } else tip.style.display = "none";
+  }
+});
+canvas.addEventListener("pointerup", (event) => {
+  if (!moved) select(pick(toWorld(event)));
+  dragNode = null; panning = null;
+  canvas.classList.remove("dragging");
+});
+canvas.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const cx = event.clientX - rect.left - rect.width / 2, cy = event.clientY - rect.top - rect.height / 2;
+  const k = Math.min(6, Math.max(0.15, view.k * Math.exp(-event.deltaY * 0.0015)));
+  view.x = cx - ((cx - view.x) / view.k) * k;
+  view.y = cy - ((cy - view.y) / view.k) * k;
+  view.k = k;
+}, { passive: false });
+
+// 처음에는 자리를 어느 정도 잡은 뒤에 보여 주고, 전체가 화면에 들어오게 맞춥니다.
+resize();
+for (let i = 0; i < 420; i++) step();
+if (nodes.length) {
+  const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
+  const spanX = Math.max(...xs) - Math.min(...xs) + 160, spanY = Math.max(...ys) - Math.min(...ys) + 160;
+  view.k = Math.min(1.8, Math.max(0.2, Math.min(canvas.clientWidth / spanX, canvas.clientHeight / spanY)));
+  view.x = -((Math.max(...xs) + Math.min(...xs)) / 2) * view.k;
+  view.y = -((Math.max(...ys) + Math.min(...ys)) / 2) * view.k;
+}
+window.__graph = { nodes, edges, select, view };
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

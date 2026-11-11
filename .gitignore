@@ -8,3 +8,5 @@ request.txt
 local-runs/
 dist/
 *.egg-info/
+target/
+*.lock.json

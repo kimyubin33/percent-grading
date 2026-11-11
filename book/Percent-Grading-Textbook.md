@@ -6,7 +6,7 @@ Percent Grading studies how to preserve the valid parts of an answer without mis
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-The initial software is an experimental evaluation-request generator and deterministic aggregator. It does not yet call an AI service, search thousands of theories, or establish that AI grading is more accurate than human grading. Chapters on large-scale perspective selection describe the intended architecture.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Large-scale theory retrieval and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -516,3 +516,125 @@ This is background for the osmosis example, not evidence supporting the proposed
 The framework combines existing ideas about partial credit, explicit rubrics, evidence, and model-based evaluation into a proposed engineering design. Its research questions concern whether the resulting profiles improve diagnosis, how perspective selection affects quality, and when the extra complexity is worth its cost.
 
 Novelty, superiority, fairness, and learning benefits remain matters for evidence. The open project should publish results that challenge its assumptions as readily as results that support them.
+
+
+# 14 A strict language contract and two AI judges
+
+## 14.1 What software can make consistent
+
+The next engineering question is stronger than “can an AI give useful partial credit?” It asks whether different models can be prevented from silently using different grading rules for the same response.
+
+A program can fix the criteria, allowed outcomes, weights, and arithmetic. It can reject an invented criterion or an unsupported score. It can preserve an accepted record and replay it later. It cannot force two independent language models to understand every natural-language statement identically. That distinction determines the architecture.
+
+The Rust implementation assigns numerical authority to the program. OpenAI and Claude each choose among named anchors already defined in the contract. They provide exact excerpts and short reasons. They do not choose a new number such as 73 or 86. If their chosen anchors disagree, the program reports disagreement and retains a range for review rather than averaging the outputs into a settled answer.
+
+Consistency therefore has three parts: a stable rule, a stable calculation, and a preserved decision record. Fresh semantic judgments can still differ. A reliable report says which kind of consistency it provides.
+
+## 14.2 The apple question needs a context
+
+Consider the question “What color is an apple?” Treating red as the only acceptable answer leaves relevant information unstated. A task might refer to a particular red apple, a green cultivar, an image, a painted object, or a simplified classroom convention. The evaluator should not invent the missing context after seeing a response.
+
+For the worked example, the contract specifies a red-skinned specimen observed in broad white illumination by an ordinary human observer. This turns a broad, ambiguous question into an explicit task. The expected present-context answer is red. Other tasks may deliberately use a broader contract with several acceptable colors.
+
+An answer can then be examined at several levels:
+
+| Response | Present-context conclusion | What else may deserve recognition |
+|---|---|---|
+| “Red.” | Matches the specified specimen | Directness; it does not demonstrate an explanation |
+| “It looks red because its surface reflects relatively more red light toward the eye under the stated illumination.” | Matches the specified specimen | A relevant mechanism and connection to viewing conditions |
+| “It is blue. Light interacts with matter through absorption and reflection.” | Conflicts with the specified specimen | The general mechanism may be partly correct, but the inference to blue is not established |
+| “Under the stated conditions it is red; a changed surface coating or a separately specified imaging transformation could produce a blue appearance.” | Preserves the specified answer | An explicit alternative scenario that needs its own conditions |
+
+The third response is not theoretically perfect merely because one of its sentences states a sound principle. The explanation must connect that principle to this surface, illumination, observer, and conclusion. Partial credit records the sound component while leaving the unsupported inference visible.
+
+The example also needs physical care. Shining blue light on a surface that reflects very little blue can make it look dark; blue illumination alone does not guarantee a blue-looking red apple. A valid alternative must describe the relevant reflectance, illumination, coating, imaging process, or other changed condition. NASA's [Wave Behaviors](https://science.nasa.gov/ems/03_behaviors/) and the University of Kentucky's [Physics of Light: Color](https://www.pa.uky.edu/sciworks/light/preview/color4aa.htm) provide background for these distinctions. These sources explain light behavior; they do not validate the scoring weights chosen here.
+
+## 14.3 Five dimensions without one vague overall impression
+
+The Rust contract distinguishes five dimensions.
+
+| Dimension | Operational question |
+|---|---|
+| Intent | Does the answer satisfy the task under its declared context? |
+| Principle | Does it state a relevant and valid underlying principle? |
+| Reasoning | Does the stated evidence support the stated conclusion? |
+| Conditions | Does it identify and respect assumptions or changed circumstances? |
+| Future | Does it specify a coherent, testable possibility or proposed development? |
+
+These dimensions are not a mandatory universal theory of assessment. They are an explicit schema for the initial Rust implementation. A domain-specific rubric still has to define what success means within each criterion.
+
+The dimensions prevent a fluent scientific paragraph from receiving credit for an unsupported conclusion. They also prevent a wrong conclusion from erasing every valid statement in the response. A short correct answer can meet the intent criterion while earning no credit for reasoning that it does not present. Whether the task should demand reasoning is a decision for the rubric author before assessment begins.
+
+## 14.4 Anchors turn a vague scale into declared choices
+
+An anchor is a named outcome with a fixed point value and a description that identifies when it applies. For example, a reasoning criterion could distinguish no demonstrated support, a relevant but incomplete connection, and a supported connection under the declared conditions.
+
+Good anchor descriptions are mutually distinguishable. “Good,” “very good,” and “excellent” offer little help unless the contract defines the observable difference. “Mentions reflection without connecting it to the claimed color” is more inspectable than “some understanding.”
+
+The models return anchor IDs rather than numerical grades. Rust maps a recognized ID to its declared points. An unknown ID, duplicate criterion, omitted criterion, or forbidden numerical field is a protocol error, not an invitation for the program to guess what the model meant.
+
+If an accepted criterion has weight w and anchor points p, its contribution to a weighted average is w times p. Within one report group, the average is:
+
+$$
+S = \frac{\sum_i w_i p_i}{\sum_i w_i}.
+$$
+
+The scoring implementation is deterministic for the same validated input. This formula does not establish that the weights or anchor descriptions measure the intended skill. Those choices still need domain review and validation.
+
+## 14.5 Why RelSpec is part of the implementation
+
+The user's RelSpec repository has evolved into AHAA, a Rust language tool for explicitly declaring words, dimensions, and scenes. Percent Grading uses a pinned version of that actual compiler to obtain checked scene records. It then validates those records against a narrower grading schema.
+
+This is a layered contract. AHAA answers whether the source follows its language and required-dimension rules. Percent Grading answers whether the resulting records form a supported scoring policy. Neither checker proves the truth of free-text descriptions.
+
+The AHAA language uses Korean keywords. The grading examples use English identifiers and English descriptions around those native keywords. Retaining the keywords is real integration with the language, not an English translation that the compiler cannot execute.
+
+A contract should be prepared before candidate answers are examined. If a new valid alternative reveals a weakness in the contract, create a new version and re-evaluate the affected answers consistently. Editing a rubric for one favored answer makes its numerical precision misleading.
+
+## 14.6 Agreement, disagreement, and unresolved evidence
+
+Both providers receive the same fixed contract and answer. Each must supply a judgment for every criterion using the supported protocol. An exact quote is checked against the answer before it can support an accepted positive outcome.
+
+When both providers select the same valid anchor, the criterion can receive that anchor's fixed points. When they select different anchors, the difference is kept for review. When a provider cannot establish an outcome, it can leave the criterion unresolved through the protocol's explicit unresolved value.
+
+The reported range describes the allowed unresolved outcomes under the contract and reconciliation rule. It is not a confidence interval over the true educational quality of the answer. It does not capture a mistake shared by both models. Users should inspect the quotes and reasons even when agreement is complete.
+
+A disagreement should lead to a concrete question: Is the anchor ambiguous? Is the answer missing a condition? Does one judge infer a claim the answer never makes? Is the reference itself wrong? Averaging the judges would hide those questions.
+
+## 14.7 Future potential is a separate question
+
+Future-oriented assessment is useful when a task invites invention, hypothesis formation, or research design. It becomes misleading if any imaginable possibility can increase the grade of a false present claim.
+
+The Rust design reports future exploration separately from present-task fulfillment. A proposal can receive exploration credit for stating a mechanism, changed assumptions, a test, and a failure condition. That credit does not assert that the proposal already works or assign a probability that it will eventually work.
+
+For the apple example, “a future process may change its surface properties” is a hypothesis. A stronger response specifies what property would change, how the appearance would be measured, and what result would count against the proposal. Neither statement changes the color of the originally specified specimen.
+
+If probability estimates are introduced in a later version, they will require a defined event, reference class or probabilistic model, and calibration data. Renaming a rubric score “possibility” does not supply those requirements.
+
+## 14.8 Replaying a decision instead of silently re-judging
+
+A reproducible run needs the contract, answer, provider configuration, prompt/protocol version, and raw outputs. The implementation identifies a run from its fixed inputs and preserves the result locally. Reusing a valid saved run avoids a fresh model call and therefore avoids silently replacing an earlier judgment with a new one.
+
+Changing the contract or configured model creates a different evaluation identity. A replay is a record of a prior evaluation; it is not a claim that the provider would return the same response again today. Provider aliases can also change behavior behind an unchanged name, which is another reason to preserve the original response and use explicit model versions where available.
+
+The saved evidence can contain the learner's original answer. Auditability does not require publishing private material. Keep local run records out of public Git history and use deliberately public fixtures for demonstrations.
+
+## 14.9 A finite path toward many theories
+
+The long-term ambition is to inspect answers through many relevant theories. An operational system first needs to know what a theory contributes to a particular criterion. A registry should preserve its source, assumptions, scope, overlap group, and reason for inclusion.
+
+The initial Rust contract supports explicit perspectives. It does not establish exhaustive coverage, automatically retrieve thousands of theories, or turn the number of perspectives into a score. Related lenses inform the same fixed criterion instead of multiplying its weight.
+
+Expansion should be measured. Add a set of relevant perspectives, evaluate a held-out collection of answers, and compare diagnostic value, disagreement, latency, and cost. Keep a perspective only when it helps the intended use enough to justify its complexity.
+
+## 14.10 Laboratory and exercises
+
+Run the offline Rust examples from the [Rust guide](../docs/RUST_GUIDE.md). They use authored fixture judgments so the contract, reconciliation, and replay behavior can be inspected without credentials or API charges. A fixture result is a software demonstration, not a measured result from either model.
+
+1. Keep an answer fixed and change one provider's anchor for a criterion. Does the report preserve disagreement instead of silently averaging it?
+2. Add a numerical `score` field to a judgment. Why should the contract reject it even if its value happens to match the anchor?
+3. Give an exact quotation that mentions reflection but does not support a blue conclusion. Explain why substring validation alone cannot reject every bad semantic judgment.
+4. Construct a future proposal with a testable mechanism and a failure condition. Which current-task score should it change?
+5. Change an anchor's definition. Explain why the new run must not be presented as a replay of the old policy.
+
+Worked answers: (1) The conflicting anchors require review; a numerical midpoint does not resolve their meaning. (2) Accepting independent score fields creates a second source of numerical authority. (3) Text existence and logical support are different properties. (4) It may earn separate future-exploration credit but cannot repair an unsupported present claim. (5) The meaning of a grade depends on the policy used to produce it, so the policy change creates a new evaluation identity.

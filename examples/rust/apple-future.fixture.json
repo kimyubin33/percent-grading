@@ -1,0 +1,113 @@
+{
+  "answer": "The specified apple appears red under broad white illumination. Its skin reflects relatively more long-wavelength visible light and absorbs relatively more of the shorter wavelengths. The light reaching an ordinary human observer therefore produces a red appearance. Apparent color depends on illumination, surface reflectance, and the observer; changing those conditions is a different scenario. A future trial could apply an opaque blue coating to a separate matched apple. If the coating reflects predominantly blue wavelengths under the same white illumination, that coated specimen could appear blue. Compare the reflected spectra and color observations of coated and uncoated specimens under the same light and viewing conditions.\n",
+  "openai": [
+    {
+      "criterion_id": "intent",
+      "anchor_id": "intent_correct",
+      "evidence": [
+        "The specified apple appears red under broad white illumination."
+      ],
+      "reason": "The present specimen is explicitly described as red.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "principle",
+      "anchor_id": "principle_sound",
+      "evidence": [
+        "Apparent color depends on illumination, surface reflectance, and the observer"
+      ],
+      "reason": "The answer connects illumination and selective surface response with perceived color.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "reasoning",
+      "anchor_id": "reasoning_sound",
+      "evidence": [
+        "The light reaching an ordinary human observer therefore produces a red appearance."
+      ],
+      "reason": "The selective reflection description supports the red conclusion in the stated conditions.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "conditions",
+      "anchor_id": "conditions_clear",
+      "evidence": [
+        "changing those conditions is a different scenario"
+      ],
+      "reason": "The answer respects the fixed white illumination and ordinary observer.",
+      "conditions": [
+        "Broad white illumination",
+        "The specified uncoated red specimen",
+        "Ordinary human observer"
+      ]
+    },
+    {
+      "criterion_id": "future",
+      "anchor_id": "future_testable",
+      "evidence": [
+        "Compare the reflected spectra and color observations of coated and uncoated specimens under the same light and viewing conditions."
+      ],
+      "reason": "The coating intervention and controlled comparison form a testable conditional proposal; 100 points describes rubric fulfillment rather than occurrence probability.",
+      "conditions": [
+        "Opaque blue coating on a separate matched specimen",
+        "Coating reflects predominantly blue wavelengths",
+        "Identical illumination and viewing conditions"
+      ]
+    }
+  ],
+  "claude": [
+    {
+      "criterion_id": "intent",
+      "anchor_id": "intent_correct",
+      "evidence": [
+        "The specified apple appears red under broad white illumination."
+      ],
+      "reason": "The present specimen is explicitly described as red.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "principle",
+      "anchor_id": "principle_sound",
+      "evidence": [
+        "Apparent color depends on illumination, surface reflectance, and the observer"
+      ],
+      "reason": "The answer connects illumination and selective surface response with perceived color.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "reasoning",
+      "anchor_id": "reasoning_sound",
+      "evidence": [
+        "The light reaching an ordinary human observer therefore produces a red appearance."
+      ],
+      "reason": "The selective reflection description supports the red conclusion in the stated conditions.",
+      "conditions": []
+    },
+    {
+      "criterion_id": "conditions",
+      "anchor_id": "conditions_clear",
+      "evidence": [
+        "changing those conditions is a different scenario"
+      ],
+      "reason": "The answer respects the fixed white illumination and ordinary observer.",
+      "conditions": [
+        "Broad white illumination",
+        "The specified uncoated red specimen",
+        "Ordinary human observer"
+      ]
+    },
+    {
+      "criterion_id": "future",
+      "anchor_id": "future_testable",
+      "evidence": [
+        "Compare the reflected spectra and color observations of coated and uncoated specimens under the same light and viewing conditions."
+      ],
+      "reason": "The coating intervention and controlled comparison form a testable conditional proposal; 100 points describes rubric fulfillment rather than occurrence probability.",
+      "conditions": [
+        "Opaque blue coating on a separate matched specimen",
+        "Coating reflects predominantly blue wavelengths",
+        "Identical illumination and viewing conditions"
+      ]
+    }
+  ]
+}

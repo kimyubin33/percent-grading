@@ -1,0 +1,31 @@
+낱말 Policy: version*, question*, context*, reference*
+낱말 Criterion: dimension*, weight*(정수), description*, critical_min*
+낱말 Anchor: criterion*, points*(정수), description*
+낱말 Perspective: criteria*, kind*, source*, assumptions*, description*, overlap*
+
+장면 AppleAssessment
+  Policy apple_v1: version 1, question Describe the apparent color of the specified apple and explain its optical basis and conditions. Optionally propose a testable future change., context The specimen has uncoated ripe red skin. It is viewed under broad white illumination by an ordinary human observer with typical color vision. These conditions are fixed for the present question., reference The specified apple appears red. Its skin reflects relatively more long wavelength visible light than shorter wavelength light. Perception depends jointly on illumination and surface reflectance and the observer. A changed coating or measurement process is a separate conditional scenario.
+  Criterion intent: dimension intent, weight 25, description State red as the apparent color of this specimen under the fixed present conditions., critical_min 75
+  Criterion principle: dimension principle, weight 30, description Explain the interaction of illumination and selective surface reflection or absorption and perception without a materially false physical generalization., critical_min none
+  Criterion reasoning: dimension reasoning, weight 25, description Connect the optical principle to the stated color conclusion without changing the fixed specimen or silently inventing an illuminant., critical_min none
+  Criterion conditions: dimension conditions, weight 20, description State relevant viewing or surface conditions and distinguish a different scenario from the present task., critical_min none
+  Criterion future: dimension future, weight 100, description Optionally propose a concrete conditional change and a way to test it. This measures hypothesis quality rather than the probability that a future event occurs., critical_min none
+  Anchor intent_wrong: criterion intent, points 0, description Red is absent or a different color is asserted for the fixed present specimen.
+  Anchor intent_ambiguous: criterion intent, points 50, description Red is mentioned as one unresolved option without a clear answer under the fixed conditions.
+  Anchor intent_correct: criterion intent, points 100, description Red is clearly identified for the fixed present specimen even when other scenarios are discussed separately.
+  Anchor principle_absent: criterion principle, points 0, description No relevant optical principle is demonstrated or the central physical explanation is false.
+  Anchor principle_partial: criterion principle, points 50, description A correct relevant optical fragment is demonstrated but the interaction of illumination and surface response remains incomplete.
+  Anchor principle_sound: criterion principle, points 100, description Illumination and wavelength selective surface response and perception are correctly connected as a general principle.
+  Anchor reasoning_absent: criterion reasoning, points 0, description No supported explanatory connection is shown.
+  Anchor reasoning_fragment: criterion reasoning, points 25, description A useful explanation fragment is present but does not support the asserted present color.
+  Anchor reasoning_partial: criterion reasoning, points 50, description The conclusion is relevant but an essential causal connection remains unstated or unresolved.
+  Anchor reasoning_sound: criterion reasoning, points 100, description The stated surface response under the fixed illumination supports the red conclusion. Any different conclusion is explicitly assigned to a separate supported scenario.
+  Anchor conditions_absent: criterion conditions, points 0, description Relevant conditions are absent or are changed silently.
+  Anchor conditions_partial: criterion conditions, points 50, description Some relevant conditions are named but their separation from the present claim is incomplete or inconsistent.
+  Anchor conditions_clear: criterion conditions, points 100, description The fixed present conditions are respected and relevant alternatives are conditional rather than substituted for the task.
+  Anchor future_absent: criterion future, points 0, description No future proposal is made or it has no relevant testable basis. This optional omission does not lower the present score.
+  Anchor future_partial: criterion future, points 50, description A concrete relevant conditional change is proposed but a test or observation criterion is missing.
+  Anchor future_testable: criterion future, points 100, description A physically plausible conditional change and a concrete observation or comparison are specified with no claim that the change already holds or is certain to occur.
+  Perspective task_alignment: criteria intent, kind method, source RustGuide, assumptions Use the stated specimen and present observation conditions., description Compare the asserted conclusion with the explicit task goal and accepted equivalent wording., overlap task
+  Perspective surface_optics: criteria principle reasoning conditions, kind established, source RustGuide, assumptions Apparent color depends on the incident spectrum and surface response and observer., description Separate a correct optical principle from an unsupported application of that principle., overlap optics
+  Perspective conditional_design: criteria future, kind method, source RustGuide, assumptions A proposed future change is evaluated as a hypothesis rather than an observed fact., description Check the proposed intervention and its observable test without adding its score to current correctness., overlap hypothesis

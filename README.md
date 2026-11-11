@@ -1,115 +1,118 @@
 # Percent Grading
 
-**AI-assisted grading that preserves partial validity, evidence, and uncertainty.**
+**Recognize valid reasoning without hiding an unsupported conclusion.**
 
-[English](README.md) | [한국어](README.ko.md) | [Textbook](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.2.0**, with the Python 0.1.1 teaching prototype retained.
 
 ## Why this project began
 
-An answer can fail to match the reference while still containing a valid component, a useful relationship, or a conclusion that holds under a particular condition. A single correct/incorrect label can hide those distinctions.
+An answer can differ from the reference while preserving a valid component, a sound principle, or a conclusion that holds under another condition. A single correct/incorrect label can hide those distinctions.
 
-The original thought experiment was simple: if A is the required answer, must only A receive recognition? In an idealized decomposition, another symbol might share one of A's strokes. That overlap deserves description, even though it does not establish that the other symbol is A.
-
-Percent Grading turns that intuition into an engineering question:
+The original thought experiment asked whether only A deserves recognition when A is the expected answer. Another symbol might share a component with A without being A. The engineering question is:
 
 > What is supported in this answer, what fails, under which conditions, and what remains unresolved?
 
-Human grading already includes partial credit and analytic rubrics. This project explores whether AI can help apply more relevant perspectives, preserve their evidence, and make disagreements easier to inspect at scale.
+Human grading already includes partial credit and analytic rubrics. Percent Grading investigates whether explicit language contracts and AI can make broader inspection more consistent, transparent, and useful.
 
-## What the percentage means
+## What the Rust program does
 
-A percentage represents **fulfillment of an explicitly defined rubric**. It is not a universal percentage of truth, a probability of correctness, or a measure of a person's intelligence.
+1. Compile a grading contract through the actual [RelSpec/AHAA compiler](https://github.com/kimyubin33/relspec-lang).
+2. Validate a strict grading schema and freeze the contract with a SHA-256 identity.
+3. Ask **OpenAI and Claude only** to choose predefined anchors and cite exact answer excerpts.
+4. Reject invented criteria, anchors, numerical score fields, or unsupported quotations.
+5. Accept a criterion only when the two validated judgments agree on its anchor.
+6. Calculate fixed points, preserve disagreements, and save a replayable audit record.
 
-We separate four useful dimensions:
+The models classify evidence. **Rust controls the permitted points and the arithmetic.** This does not force the models to interpret language identically: disagreement produces review, rather than a hidden average. A saved run can be replayed without making another model call.
 
-| Dimension | What it checks |
+## The apple example
+
+“What color is an apple?” is underspecified. The example contract explicitly describes a red-skinned specimen under broad white illumination and asks for its color, an explanation, and relevant conditions.
+
+| Answer feature | How the profile handles it |
 |---|---|
-| Components | Required entities and properties |
-| Relationships | Logical, causal, spatial, or temporal connections |
-| Conditions | Assumptions, scope, and exceptions |
-| Goal fulfillment | Whether the response accomplishes the task |
+| Gives the expected red conclusion | Intent credit |
+| Explains relevant reflection and absorption | Principle credit |
+| Connects that mechanism to this specimen | Reasoning credit |
+| States assumptions or distinguishes a changed scenario | Conditions credit |
+| Proposes a testable future possibility | Separate future-exploration credit |
 
-A correct component does not automatically establish a correct relationship or a successful answer. Critical requirements preserve that distinction.
+“Blue, because light is reflected” can contain a valid general principle while failing to justify blue in the specified setting. Blue illumination alone does not guarantee that a red surface looks blue; it can look dark. A defensible alternative needs explicit surface, illumination, or imaging conditions.
 
-## Intended benefits
+A short “red” answer satisfies the color-identification part. It does not demonstrate an explanation the expanded example task explicitly requests. The rubric must be stated before answers are graded; an ordinary color-only question should not acquire hidden reasoning requirements afterward.
 
-| Benefit to investigate | How the design supports it | What must be verified |
-|---|---|---|
-| More useful feedback | Criterion-level evidence and repair guidance | Whether learners can improve more effectively |
-| Recognition of alternative answers | Meaning-based judgment with accepted alternatives | Paraphrase acceptance without rewarding vague answers |
-| More reviewable decisions | Quotations, reasons, rubric versions, and explicit abstention | Whether the evidence actually supports the judgment |
-| Broader inspection | A planned registry of theories and evaluation lenses | Whether additional perspectives improve quality at an acceptable cost |
-| Visible uncertainty | Coverage and completion bounds beside the score | Whether users interpret the outputs correctly |
+## What the percentages mean
 
-These are intended advantages, not measured performance claims.
+The current-task score measures fulfillment of the declared intent, principle, reasoning, and conditions criteria. The future score measures the quality of explicitly stated hypotheses or proposed alternatives. **Future credit does not increase current-task correctness.**
 
-## How it works
+These are rubric scores, not probabilities of truth or forecasts of future success. Disagreement and unresolved criteria produce bounded reports. Their bounds describe the scoring policy, not statistical confidence intervals or protection against errors shared by both models.
 
-1. Define the task, assumptions, reference, and acceptable alternatives.
-2. Fix criteria, weights, score anchors, and critical requirements.
-3. Generate a grading request for a chosen AI evaluator.
-4. Obtain one reviewed judgment per criterion, with exact answer excerpts.
-5. Validate the input and calculate scores deterministically.
-6. Read the criterion profile, critical failures, and coverage before the total.
+Perspectives inform fixed criteria. Adding many overlapping theories does not multiply the available credit. The program supports declared perspectives; automatic discovery of thousands of theories remains future work.
 
-In the larger architecture, multiple perspectives can inform each criterion. They do not each receive their own share of the grade merely because they exist. Repeating the same idea under thousands of names must not create thousands of independent votes.
+## Quick start without API keys
 
-“All perspectives” is an open-ended ambition. A finite system must report which perspectives it examined, why they were relevant, and where coverage remains limited.
+Install a current stable Rust toolchain, clone this repository, and run from its root:
 
-## Current capabilities
+```text
+cargo build --locked
+cargo run --locked -- compile policies/apple.aha --out local-runs/apple.lock.json
+cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-blue.fixture.json
+cargo test --locked
+```
+
+The compile command creates a new lock file and refuses to overwrite an existing one. Reuse the existing lock, or choose a new output path after changing a policy.
+
+The demo uses **manually authored fixture judgments**, not real AI output. Red, future-scenario, and disagreement fixtures are also included. See the [Rust guide](docs/RUST_GUIDE.md) for their commands and the output interpretation.
+
+## Live OpenAI and Claude evaluation
+
+Configure `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in your environment, then provide model IDs supported by your accounts:
+
+```text
+cargo run --locked -- grade local-runs/apple.lock.json examples/rust/apple-blue.txt --openai-model YOUR_OPENAI_MODEL --claude-model YOUR_CLAUDE_MODEL
+```
+
+A live grade calls both providers and may incur API charges. A ChatGPT subscription does not supply API access. No third provider or arbitrary API endpoint is supported. Request attempts, timeouts, output tokens, and response sizes are bounded; these limits are not a fixed monetary budget.
+
+The guide explains local records, replay, offline judgment evaluation, and failure handling. Credentials are never part of the contract or saved report.
+
+## Current scope
 
 | Capability | Status |
 |---|---|
-| Evaluation-request generation | Implemented |
-| JSON contract and exact quotation checks | Implemented |
-| Fixed-rubric aggregation and critical gates | Implemented |
-| Coverage and unresolved-score bounds | Implemented |
-| Examples and unit tests | Included |
-| English textbook and bilingual introduction | Included |
-| Automatic AI API calls | Planned |
-| Theory retrieval and multi-judge disagreement resolution | Planned |
-| Empirical advantage over human or conventional grading | Not established |
+| Rust CLI and real RelSpec/AHAA compilation | Implemented |
+| Strict contract, fixed anchors, and content identity | Implemented |
+| OpenAI Responses and Claude Messages adapters | Implemented |
+| Two-judge reconciliation and exact quotation checks | Implemented |
+| Separate present and future profiles | Implemented |
+| Saved run replay and offline fixtures | Implemented |
+| Large-scale theory retrieval and selection | Planned |
+| Empirical advantage over existing grading | Not established |
 
-The bundled judgments are **manual teaching fixtures**, not AI benchmark results.
+The adapters require compatible model access and credentials for live use. Offline tests establish specified software behavior; they do not establish model accuracy or educational validity.
 
-## Quick start
+## Read and contribute
 
-Python 3.10 or later. The core uses the standard library only.
-
-~~~text
-python -m percent_grading prompt examples/osmosis.case.json
-python -m percent_grading aggregate examples/osmosis.case.json examples/osmosis.judgments.json
-python -m unittest discover -s tests -v
-~~~
-
-Copy the first command's output into your chosen AI service. Save only the returned JSON object as a UTF-8 file, then supply that path to the aggregate command. No API request is made by the current CLI.
-
-The osmosis fixture produces approximately **83.33% observed fulfillment at 90% coverage**, with completion bounds of **75–85%**. These are arithmetic results from illustrative manual judgments, not validated measurements of learning.
-
-The bounds account for unresolved criteria while accepted scores remain fixed. They are not statistical confidence intervals and do not include AI judgment errors.
-
-## Read and learn
-
-- [Textbook: foundations, examples, laboratory, exercises, and solutions](book/Percent-Grading-Textbook.md)
-- [Concept and origin](docs/CONCEPT.md)
-- [Scoring rules](docs/SCORING.md)
-- [Architecture and perspective selection](docs/ARCHITECTURE.md)
-- [Input contract and AI workflow](docs/PROTOCOL.md)
+- [Rust guide: contract, CLI, API setup, and audit records](docs/RUST_GUIDE.md)
+- [English textbook, including the Rust chapter](book/Percent-Grading-Textbook.md)
+- [Architecture and trust boundaries](docs/ARCHITECTURE.md)
 - [Experimental validation](docs/EXPERIMENTS.md)
 - [Related work](docs/RELATED_WORK.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 
-## Research principles
+The Python files and their [scoring](docs/SCORING.md) and [protocol](docs/PROTOCOL.md) documents describe the retained 0.1.1 prototype. They use a different input format; Rust does not silently accept Python judgment files.
 
-Keep the task and criteria explicit. Preserve valid fragments without hiding failed goals. Distinguish missing requirements from unresolved judgment. Record disagreement rather than hiding it in an average. Evaluate new perspectives against their cost. Publish counterexamples and unfavorable results.
+## Intended benefits and research principles
 
-This prototype is intended for research and formative evaluation. Using it for consequential grades requires domain validation and a meaningful review process.
+The intended benefits are better recognition of valid alternatives, more specific feedback, visible disagreement, and decisions that can be inspected and replayed. These are hypotheses to test, not measured performance claims.
+
+Keep task assumptions explicit. Credit only what an answer demonstrates. Preserve failed conclusions beside valid components. Version rubric changes and re-evaluate affected answers consistently. Publish counterexamples and unfavorable results.
 
 ## License and attribution
 
-Code and documentation are released under the [MIT License](LICENSE).
+Original project code and documentation use the [MIT License](LICENSE). Vendored RelSpec/AHAA source is attributed separately in [UPSTREAM.md](vendor/relspec/UPSTREAM.md); the upstream snapshot did not include a license, so the root license does not relicense it.
 
-Concept and project initiative: Yubin Kim. Documentation and initial implementation were developed with AI assistance. The project does not claim that partial credit or rubric-based assessment originated here.
+Concept and project initiative: Yubin Kim. Documentation and implementation were developed with AI assistance. The project does not claim to have invented partial credit or rubric-based assessment.

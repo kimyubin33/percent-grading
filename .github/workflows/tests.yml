@@ -3,6 +3,20 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --package percent-grading -- --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo run --locked -- compile policies/apple.aha --out local-runs/apple.lock.json
+      - run: cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-blue.fixture.json
+      - run: cargo run --locked -- demo local-runs/apple.lock.json examples/rust/apple-disagreement.fixture.json
   test:
     runs-on: ubuntu-latest
     strategy:

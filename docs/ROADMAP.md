@@ -1,21 +1,41 @@
 # Roadmap
 
-## Version 0.1.1
+## 0.1.1 — Python teaching prototype
 
-- English code messages, prompts, examples, and technical documentation.
-- English README and Korean README.
-- English teaching text with exercises and worked answers.
-- Explicit review state when nothing has been judged.
-- All 16 local tests passed on Python 3.14.4 on 2026-11-11. GitHub Actions runs checks on pushes and pull requests.
+The initial implementation generated evaluation requests, validated manual JSON judgments, and computed fixed-rubric scores. It included bilingual introductions, an English textbook, and 16 local tests. It remains available for the original laboratory exercises.
 
-## Next: AI adapter
+## 0.2.0 — Rust contract and two-provider evaluation
 
-Implement one optional API adapter, structured output, timeouts, bounded retries, cost limits, and raw-response audit records. Acceptance: fixed public examples can be reproduced with failure logs.
+- Use the actual pinned RelSpec/AHAA compiler and add a strict grading-specific semantic profile.
+- Freeze criteria, assumptions, anchors, weights, and declared perspectives in a checked contract.
+- Connect only OpenAI Responses and Anthropic Claude Messages.
+- Require anchor IDs and answer evidence instead of model-authored numerical grades.
+- Preserve two-provider disagreement for review.
+- Keep current fulfillment separate from future exploration.
+- Save records for replay and include offline manual fixtures.
 
-## Next: multiple perspectives
+Software tests and manually authored fixtures verify specified behavior. They do not establish live-provider reliability, grading accuracy, or educational benefit.
 
-Load a sourced registry, select relevant lenses, group overlap, preserve competing judgments, and review or abstain on conflicts. Acceptance: publish comparisons at 1, 4 and 16 perspectives and a duplication stress test.
+## Next — Controlled live validation
 
-## Next: empirical study
+Run public, consented examples using explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation.
 
-Collect and independently review task data. Compare baselines under documented budgets. Publish accuracy, coverage, feedback quality and cost. Expand scale only after useful gains are demonstrated.
+Acceptance: publish a reproducible run manifest and reviewed failure cases. Distinguish live model judgments from authored fixtures and software tests.
+
+## Next — Review and adjudication
+
+Develop an explicit review workflow for disputed anchors. Preserve the two original judgments, reviewer rationale, and any new policy version. A reviewer may identify a broken rubric, a model error, or a genuinely unresolved case.
+
+Acceptance: an amended outcome has a traceable reason and cannot silently replace its original evidence. Re-evaluate all affected answers after a rubric change.
+
+## Next — Perspective retrieval and selection
+
+Extend the declared perspective registry with sourced retrieval, relevance criteria, versioning, and overlap checks. Adding a perspective must not add weight to an unchanged criterion.
+
+Acceptance: compare small and larger relevant perspective sets under controlled budgets, including duplicated and irrelevant lenses. Publish cases where more perspectives harm performance.
+
+## Next — Domain study
+
+Collect independently reviewed tasks and split evaluation by underlying task. Compare ordinary analytic rubrics, a single overall AI score, and the proposed profile. Measure criterion error, false rejection of valid alternatives, critical failures, coverage, useful feedback, latency, and cost.
+
+Acceptance: publish the study design, limits, disagreements, and unfavorable results. Expand the number of theories only when measured gains justify the added cost.
