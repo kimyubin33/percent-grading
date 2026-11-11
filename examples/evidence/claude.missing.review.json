@@ -1,0 +1,33 @@
+{
+  "input_hash": "aabc7d86c5a289f4352ed316e9eb181570ec28150ae65440eac42ec3570769f6",
+  "reviews": [
+    {
+      "link_id": "coating_proposal_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "conditional_scope_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "optical_basis_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "red_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    }
+  ]
+}

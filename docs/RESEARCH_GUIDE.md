@@ -2,6 +2,8 @@
 
 Version 0.3.0 adds two distinct operations: bibliographic discovery through Crossref and deterministic selection from a declared perspective catalog. Neither operation changes the grading contract's weights, anchors, or accepted conclusions. OpenAI and Claude remain the only AI judges.
 
+Version 0.4 adds a separate [claim-level evidence workflow](EVIDENCE_GUIDE.md). It reviews imported claim-to-source links and withholds final grades when required evidence remains unresolved. The `--research` mode described here does not perform that source audit. Choose `--evidence` for the reviewed workflow; the two context options cannot be combined in one grading run.
+
 ## 1. What is automatic
 
 `discover` sends a bounded search query to the official Crossref metadata API and saves bibliographic candidates. It does not download papers or treat their titles as established scientific findings.

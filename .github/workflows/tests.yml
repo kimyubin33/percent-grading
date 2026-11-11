@@ -20,6 +20,17 @@ jobs:
       - run: cargo run --locked -- select local-runs/apple.lock.json catalogs/apple.json --out local-runs/apple.research.json
       - run: cargo run --locked -- inspect-research local-runs/apple.lock.json local-runs/apple.research.json
       - run: cargo run --locked -- prompt local-runs/apple.lock.json examples/rust/apple-blue.txt --research local-runs/apple.research.json
+      - run: cargo run --locked -- evidence-policy local-runs/apple.lock.json policies/apple-evidence.aha --out local-runs/apple.evidence-policy.json
+      - run: cargo run --locked -- evidence-prepare local-runs/apple.lock.json local-runs/apple.evidence-policy.json examples/evidence/apple.dossier.json --out local-runs/apple.evidence-input.json
+      - run: cargo run --locked -- evidence-import local-runs/apple.lock.json local-runs/apple.evidence-input.json examples/evidence/openai.review.json examples/evidence/claude.review.json --out local-runs/apple.evidence.json
+      - run: cargo run --locked -- inspect-evidence local-runs/apple.lock.json local-runs/apple.evidence.json
+      - run: cargo run --locked -- prompt local-runs/apple.lock.json examples/rust/apple-blue.txt --evidence local-runs/apple.evidence.json
+      - run: cargo run --locked -- evidence-import local-runs/apple.lock.json local-runs/apple.evidence-input.json examples/evidence/openai.review.json examples/evidence/claude.disagreement.review.json --out local-runs/apple.disputed-evidence.json
+      - run: cargo run --locked -- evidence-policy local-runs/apple.lock.json policies/apple-evidence-v2.aha --out local-runs/apple.evidence-policy-v2.json
+      - run: cargo run --locked -- evidence-prepare local-runs/apple.lock.json local-runs/apple.evidence-policy-v2.json examples/evidence/apple-missing.dossier.json --out local-runs/apple.evidence-input-v2.json
+      - run: cargo run --locked -- evidence-import local-runs/apple.lock.json local-runs/apple.evidence-input-v2.json examples/evidence/openai.missing.review.json examples/evidence/claude.missing.review.json --out local-runs/apple.evidence-v2.json
+      - run: cargo run --locked -- evidence-compare local-runs/apple.lock.json local-runs/apple.evidence.json local-runs/apple.evidence-v2.json
+      - run: cargo run --locked -- revise-evidence local-runs/apple.lock.json local-runs/apple.evidence.json local-runs/apple.evidence-v2.json examples/evidence/cohort.json --reason "Reassess every declared submission after evidence revision." --out local-runs/apple.reassessment.json
       - name: Public Crossref connectivity smoke check
         if: matrix.os == 'ubuntu-latest'
         continue-on-error: true

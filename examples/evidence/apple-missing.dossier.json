@@ -1,0 +1,65 @@
+{
+  "format": "percent-grading-evidence-dossier-v1",
+  "sources": [
+    {
+      "id": "task_reference",
+      "title": "Frozen apple task reference",
+      "url": "task:reference",
+      "origin_id": "apple_contract",
+      "kind": "task",
+      "locator": "policies/apple.aha Policy reference field",
+      "content": "The specified apple appears red. Its skin reflects relatively more long wavelength visible light than shorter wavelength light. Perception depends jointly on illumination and surface reflectance and the observer. A changed coating or measurement process is a separate conditional scenario."
+    },
+    {
+      "id": "synthetic_explanations",
+      "title": "Synthetic apple reasoning fixture - not a scientific source",
+      "url": "https://example.org/percent-grading/synthetic-apple-fixture",
+      "origin_id": "authored_fixture",
+      "kind": "original",
+      "locator": "Authored fixture snapshot 2026-11-12; paragraphs 2 through 5",
+      "content": "SYNTHETIC PROTOCOL FIXTURE. Authored for software demonstration; not a retrieved scientific publication.\nApparent surface color depends jointly on illumination and wavelength selective surface response and the observer.\nFor the fixed red specimen under broad white illumination the described selective surface response supports the red conclusion.\nChanging viewing or surface conditions defines a separate scenario and does not establish its conclusion for the fixed task.\nA specified surface modification could change apparent color and should be tested by comparison under fixed observation conditions.\nThe proposed surface modification is conditional and has not been performed on the present specimen."
+    }
+  ],
+  "links": [
+    {
+      "id": "red_link",
+      "claim_id": "red_expectation",
+      "source_id": "task_reference",
+      "quote": "The specified apple appears red.",
+      "location": "Reference opening sentence"
+    },
+    {
+      "id": "optical_basis_link",
+      "claim_id": "optical_basis",
+      "source_id": "synthetic_explanations",
+      "quote": "Apparent surface color depends jointly on illumination and wavelength selective surface response and the observer.",
+      "location": "Synthetic fixture statement 1"
+    },
+    {
+      "id": "conditional_scope_link",
+      "claim_id": "conditional_scope",
+      "source_id": "synthetic_explanations",
+      "quote": "Changing viewing or surface conditions defines a separate scenario and does not establish its conclusion for the fixed task.",
+      "location": "Synthetic fixture statement 3"
+    },
+    {
+      "id": "coating_proposal_link",
+      "claim_id": "coating_proposal",
+      "source_id": "synthetic_explanations",
+      "quote": "A specified surface modification could change apparent color and should be tested by comparison under fixed observation conditions.",
+      "location": "Synthetic fixture statement 4"
+    }
+  ],
+  "searches": [
+    {
+      "query": "surface reflectance illumination observer apparent apple color",
+      "purpose": "support",
+      "outcome": "Synthetic offline fixture. No search was executed; source statements were authored to demonstrate the protocol."
+    },
+    {
+      "query": "counterexamples to surface color conclusions under changed illumination",
+      "purpose": "counter",
+      "outcome": "Synthetic offline fixture. No search was executed. This record is not evidence that counterexamples are absent."
+    }
+  ]
+}

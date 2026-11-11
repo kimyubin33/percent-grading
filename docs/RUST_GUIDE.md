@@ -2,6 +2,8 @@
 
 Version 0.2.0 adds a real Rust program, the pinned RelSpec/AHAA compiler, and exactly two live API adapters: OpenAI and Anthropic Claude. The Python 0.1.1 prototype remains available for historical exercises and has a different protocol.
 
+The current release is 0.4.0. This guide explains the original grading workflow; the [research guide](RESEARCH_GUIDE.md) covers 0.3 discovery and selection, and the [evidence guide](EVIDENCE_GUIDE.md) covers 0.4 source reviews, optional `--evidence` gates, and common reassessment plans. Older runs retain their original identities and can be replayed without adding the new gate retroactively.
+
 ## 1. Build and run without credentials
 
 Use a current stable Rust toolchain with Cargo. Clone the repository and run the following commands from its root. The first build needs the dependencies listed in `Cargo.lock`; later builds can use Cargo's local cache.

@@ -350,6 +350,57 @@ pub fn aggregate(
     })
 }
 
+/// Withhold criteria whose frozen reference claims did not pass evidence review.
+/// This cannot award points or convert missing knowledge into a learner failure.
+/// Original model rows remain untouched so the override can be audited.
+pub fn apply_evidence_gate(report: &mut Report, blocked: &[String]) -> Result<(), String> {
+    if blocked.is_empty() {
+        return Ok(());
+    }
+    let ids: BTreeSet<_> = blocked.iter().map(String::as_str).collect();
+    if ids.len() != blocked.len()
+        || ids
+            .iter()
+            .any(|id| !report.criteria.iter().any(|c| c.criterion_id == *id))
+    {
+        return Err("Evidence gate requires unique known criterion IDs".into());
+    }
+    for row in &mut report.criteria {
+        if ids.contains(row.criterion_id.as_str()) {
+            row.status = "evidence_unresolved".into();
+            row.awarded_points = None;
+            row.lower_points = 0;
+            row.upper_points = 100;
+        }
+    }
+    report
+        .critical_failures
+        .retain(|id| !ids.contains(id.as_str()));
+    let current: Vec<_> = report
+        .criteria
+        .iter()
+        .filter(|r| r.dimension != "future")
+        .collect();
+    let future: Vec<_> = report
+        .criteria
+        .iter()
+        .filter(|r| r.dimension == "future")
+        .collect();
+    report.current = profile(&current);
+    report.future = (!future.is_empty()).then(|| profile(&future));
+    report.status = if report.critical_failures.is_empty() {
+        "review"
+    } else {
+        "blocked"
+    }
+    .into();
+    const NOTE: &str = " Evidence-unresolved criteria span all allowed anchor points because their reference claims lack sufficient reviewed support. This is not a zero award or a statistical confidence interval.";
+    if !report.interpretation.ends_with(NOTE) {
+        report.interpretation.push_str(NOTE);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -426,6 +477,53 @@ mod tests {
         assert_eq!(result.status, "ready");
         assert_eq!(result.current.percent, Some(100.0));
         assert_eq!(result.future.unwrap().percent, Some(100.0));
+    }
+
+    #[test]
+    fn missing_reference_support_overrides_both_judges_without_zero_award() {
+        let c = contract();
+        let a = judgment(&c);
+        let mut report = score(&c, &a, &a).unwrap();
+        apply_evidence_gate(&mut report, &["principle".into()]).unwrap();
+        assert_eq!(report.current.percent, None);
+        assert_eq!(report.current.coverage_percent, 40.0);
+        assert_eq!(
+            (report.current.lower_percent, report.current.upper_percent),
+            (40.0, 100.0)
+        );
+        assert_eq!(report.criteria[1].status, "evidence_unresolved");
+        assert_eq!(report.criteria[1].awarded_points, None);
+        assert_eq!(report.criteria[1].openai.anchor_id, "principle_full");
+        assert_eq!(report.future.as_ref().unwrap().percent, Some(100.0));
+        assert!(report.disagreements.is_empty());
+        let original = report.clone();
+        apply_evidence_gate(&mut report, &["principle".into()]).unwrap();
+        assert_eq!(report, original);
+    }
+
+    #[test]
+    fn uncertain_reference_cannot_keep_a_critical_failure() {
+        let c = contract();
+        let mut a = judgment(&c);
+        a.judgments[0].anchor_id = "intent_zero".into();
+        let mut report = score(&c, &a, &a).unwrap();
+        assert_eq!(report.status, "blocked");
+        apply_evidence_gate(&mut report, &["intent".into()]).unwrap();
+        assert_eq!(report.status, "review");
+        assert!(report.critical_failures.is_empty());
+        let original = report.clone();
+        assert!(apply_evidence_gate(&mut report, &["principle".into(), "unknown".into()]).is_err());
+        assert_eq!(report, original);
+    }
+
+    #[test]
+    fn future_evidence_does_not_change_current_profile() {
+        let c = contract();
+        let a = judgment(&c);
+        let mut report = score(&c, &a, &a).unwrap();
+        apply_evidence_gate(&mut report, &["hypothesis".into()]).unwrap();
+        assert_eq!(report.current.percent, Some(100.0));
+        assert_eq!(report.future.unwrap().percent, None);
     }
 
     #[test]

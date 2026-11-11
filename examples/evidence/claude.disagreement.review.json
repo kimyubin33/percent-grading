@@ -1,0 +1,40 @@
+{
+  "input_hash": "b73093c52f4951bb3359dbfced3fa53119ed6fb6c95c32fc0696ec4681b7725f",
+  "reviews": [
+    {
+      "link_id": "coating_proposal_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "conclusion_link_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "conditional_scope_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    },
+    {
+      "link_id": "optical_basis_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "uncertain",
+      "reason": "Manual disagreement fixture: synthetic material is not sufficient for this reviewer to settle eligibility. This record is not a live Claude response."
+    },
+    {
+      "link_id": "red_link",
+      "relation": "supports",
+      "applicable": true,
+      "quality": "eligible",
+      "reason": "Manual protocol fixture judgment under the synthetic-only demonstration policy. The supplied statement matches the declared claim and conditions; this does not establish scientific source quality."
+    }
+  ]
+}

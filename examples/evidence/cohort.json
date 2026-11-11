@@ -1,0 +1,21 @@
+{
+  "format": "percent-grading-cohort-v1",
+  "task_id": "apple-demo-cohort",
+  "members": [
+    {
+      "submission_id": "example_blue_a",
+      "answer_hash": "760b61ea9318b9f44958752b23685c946d58468b3647f39f2d0a6033b377b43e",
+      "previous_run_id": null
+    },
+    {
+      "submission_id": "example_blue_b",
+      "answer_hash": "760b61ea9318b9f44958752b23685c946d58468b3647f39f2d0a6033b377b43e",
+      "previous_run_id": null
+    },
+    {
+      "submission_id": "example_red",
+      "answer_hash": "069dc70e65e683fc5cb9d215fcda9107d875bed1aaa805a7ad2cedf5b883935b",
+      "previous_run_id": null
+    }
+  ]
+}

@@ -6,7 +6,7 @@ Percent Grading studies how to preserve the valid parts of an answer without mis
 
 The central distinction is between an answer's individual claims, the relationships among those claims, the conditions under which they hold, and the goal the answer must achieve. A percentage summarizes an explicitly chosen rubric. It does not measure a universal fraction of truth.
 
-Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
+Chapters 1–13 describe the foundational framework and the Python 0.1.1 teaching prototype. Chapter 14 develops the Rust 0.2.0 implementation: a checked RelSpec/AHAA contract, two API providers, fixed score anchors, disagreement handling, and recorded replay. Chapter 15 adds the Rust 0.3.0 research workflow: bibliographic discovery, source curation, bounded catalog selection, and frozen research context. Chapter 16 develops the Rust 0.4.0 evidence layer: claim-to-source reviews, deterministic withholding, and common reassessment after evidence revisions. Exhaustive semantic coverage and educational superiority remain research questions. Use the [Rust guide](../docs/RUST_GUIDE.md) and [research guide](../docs/RESEARCH_GUIDE.md) for current commands and formats.
 
 # 1 Why this project began
 
@@ -733,3 +733,80 @@ A real comparison would run the two configured models with no external pack, the
 Worked answers: (1) Inspect the source and its scope, state the supported claim, preserve a limited excerpt or labeled paraphrase, and identify assumptions and eligible dimensions. A DOI alone is insufficient. (2) Selection must be independent of the learner's answer. (3) Matching declared overlap groups and exact content is not general semantic equivalence detection. (4) No; future exploration remains separate from present validity. (5) The weight remains fixed; the report exposes missing selected coverage. (6) The judges receive different evidence, so presenting the result as an unchanged replay would hide a material input change.
 
 Further reading and the example's primary source notes are in the [research guide](../docs/RESEARCH_GUIDE.md).
+
+## 16. Fairness begins with the evidence admitted
+
+### 16.1 Reproducible selection is not sufficient validation
+
+A grading engine can use identical arithmetic for every learner and still be unfair. If its evidence supports only one favored interpretation, an alternative answer may be rejected before the scoring function has any opportunity to recognize its merit. Repeating the same flawed selection makes that failure reproducible, not justified.
+
+The previous chapter separated discovery from selection. Version 0.4 adds a third distinction: the existence of a source, the presence of a quotation, and the applicability of that quotation to a claim are different facts. A prestigious source may be irrelevant to the task. A correct general principle may fail to establish the particular conclusion being graded. An exact substring may be a statement the source discusses only to reject later.
+
+The engineering response is to make evidence admission inspectable. The software preserves source text, claim links, conditions, review decisions, and unresolved states. It cannot infer a universal numerical truth probability from these records.
+
+### 16.2 An evidence policy before the answer
+
+The grading contract determines the educational task. The evidence policy determines how external material may inform that task. It specifies the domain, inclusion and exclusion rules, intended search plan, cutoff, source limit, minimum independent support, and context budget.
+
+Each evidence claim maps to a criterion in the unchanged grading contract. Its statement and conditions must be explicit. For the apple example, a statement about wavelength-selective surface response is a different claim from the stipulated task expectation that the specimen appears red. Copying the expected answer into a source field does not independently validate an optical explanation.
+
+Both policies use the actual AHAA compiler followed by specialized Rust checks. The grammar enforces required dimensions and record structure. Rust checks references, allowed kinds, coverage, budgets, and hashes. Neither layer proves that the free-text inclusion rule is sensible or that a claim is true.
+
+Prepare the policy before grading. Software cannot certify the private history of its author, so this ordering is also a procedural commitment. A later valid alternative should trigger an explicit revision, not a silent exception for one answer.
+
+### 16.3 Claim-level source review
+
+A source dossier contains imported text and provenance information. A claim link identifies a source, a quotation within that text, and a location. The program rejects a quote that is absent from the supplied source. It does not fetch the URL or establish that the supplied text faithfully represents a publication.
+
+Two reviewers inspect every link independently. They classify the source's relation to the claim, whether its conditions apply, and whether it meets the declared admission policy. The review must include a concise justification. These classifications are semantic judgments; independent API calls do not ensure independent errors.
+
+Evidence origin groups prevent multiple reports of one result from being counted as multiple independent results. Exact duplicate source text is collapsed even when it has different origin labels. The declarations still require curation: two differently worded summaries of one study may escape exact duplicate detection.
+
+Both support and counterevidence searches must be documented. This requirement ensures that a dossier has a place to disclose opposing evidence. The submitted record is not proof that a search occurred or that it was exhaustive. Searching only supportive terms and inventing an empty countersearch record would satisfy no substantive scientific standard, even if the JSON were valid.
+
+### 16.4 Five states instead of a fabricated trust percentage
+
+The implemented states are `supported`, `contradicted`, `conflicted`, `insufficient`, and `hypothesis`. They describe the supplied evidence under the declared policy, not the final state of scientific knowledge.
+
+Supporting material must satisfy the independent-origin requirement and the two-reviewer rules. Applicable opposing evidence cannot be erased by adding more supportive copies. Review disagreement or unresolved relevant evidence prevents a settled result. A future hypothesis remains a hypothesis even when its proposed basis and conditions pass review.
+
+The distinction between contradiction and insufficient support matters to learners. A search failure does not show that an answer is false. A contradiction may reveal that the reference claim itself needs correction. Neither state should silently become a zero awarded to a learner under an otherwise unquestioned rubric.
+
+### 16.5 A deterministic gate after model grading
+
+The evidence pack becomes part of the grading input and run identity. Both answer judges receive the same pack. They still choose fixed anchors and cite the learner's actual answer.
+
+For a criterion to receive a settled award in evidence mode, all of its required evidence claims must pass the evidence rules, and both answer judges must agree under the original anchor rules. If the source basis is blocked, Rust withholds the criterion's settled award even when both judges selected full credit. The report retains the original judgments and an unresolved range.
+
+This gate is deliberately distinct from awarding points for source popularity. It does not multiply a learner's score by an invented reliability coefficient. It prevents an unresolved reference basis from masquerading as a final assessment. Future criteria remain in their separate profile, so a plausible future mechanism cannot repair a false claim about the present specimen.
+
+The boundary is also explicit: plain grading and the earlier research-context workflow remain available. Only a run supplied with a checked evidence pack applies this evidence gate. The run record indicates which mode was used.
+
+### 16.6 New evidence should create a common revision
+
+An answer may expose a sound interpretation missing from the original evidence set. A rigid ban on adding sources would protect consistency by sacrificing the very alternatives this project aims to recognize.
+
+Version the evidence policy, reassess the new material, and compare the old and new evidence packs. A common reassessment plan records both identities, the reason for the revision, and every submission in a declared cohort. Two learners with identical answer text still have distinct submission identities and remain separate entries.
+
+The plan marks work as pending. It does not call providers, overwrite earlier grades, or certify that the supplied cohort matches a complete external roster. Its purpose is to make equal treatment reviewable: every listed submission requires the same revised evidence basis. If the grading criteria or points themselves change, that is a grading-contract migration rather than an evidence-only revision.
+
+### 16.7 Source sensitivity remains a separate experiment
+
+Comparing evidence packs can reveal changed claim definitions, support states, and blocked criteria. It does not reveal how an answer's score would change without evaluating the answer under each pack.
+
+A source-sensitivity study should define eligible alternative packs before inspecting favorable outcomes, keep the grading contract and answers fixed, and report changes in judgments and withheld results. Removing one important origin can be a useful stress test. It is not automatically an unbiased estimate of uncertainty, and its range is not a statistical confidence interval.
+
+The practical question is whether reasonable evidence-selection choices cause materially different decisions. A robust system should expose such dependence rather than hide it behind two-model agreement.
+
+### 16.8 Laboratory and worked exercises
+
+Use the [evidence guide](../docs/EVIDENCE_GUIDE.md) to compile an evidence policy, prepare a dossier, import manual reviews, inspect the derived pack, and preview grading with `--evidence`. The bundled source material is explicitly synthetic. Its example.org URLs and authored reviews demonstrate software behavior, not external validation.
+
+1. Replace a linked quote with wording absent from the source. Which layer should reject the input?
+2. Keep a valid quote but assign it to a claim with different observation conditions. Can exact-substring validation settle applicability?
+3. Copy one source under several IDs and origin groups. Why must repeated text not satisfy a multi-origin threshold?
+4. Make both answer judges choose full credit while a required evidence claim remains insufficient. Should the report contain a final percentage?
+5. Discover a valid omitted alternative in one learner's answer. What must happen before using the new evidence to change only that learner's grade?
+6. A two-pack comparison reports no changed evidence states. Has it established that both models will grade every answer identically?
+
+Worked answers: (1) Dossier validation rejects the absent substring before model review. (2) No; applicability is a semantic question evaluated separately. (3) Repetition does not create independent evidence, and exact duplicate text must be collapsed. (4) No; the deterministic evidence gate withholds the affected profile's final percentage. (5) Review and version the common evidence basis, then reassess all affected submissions consistently while preserving old results. (6) No; actual controlled answer evaluations are needed to measure judgment sensitivity.

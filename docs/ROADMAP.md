@@ -28,6 +28,20 @@ Software tests and manually authored fixtures verify specified behavior. They do
 
 Search results remain candidates until a curator inspects the underlying source. Lexical matching and overlap labels do not establish semantic relevance or scientific validity. Input-capacity tests are not a benchmark of theory coverage.
 
+## 0.4.0 - Claim-level evidence and common reassessment
+
+- Compile a separate evidence policy through the actual RelSpec/AHAA language and bind it to the grading task.
+- Link required claims to exact imported source excerpts and explicit conditions.
+- Require declared supportive and counterevidence search records without treating those records as proof of executed or exhaustive searches.
+- Ask only OpenAI and Claude to review each link for support, contradiction, applicability, and source eligibility.
+- Preserve insufficient, conflicted, contradicted, and future-hypothesis states rather than inventing trust probabilities.
+- Collapse declared common origins and exact duplicate source text when counting independent support.
+- Withhold affected final grades in evidence mode even when the answer judges agree on full credit.
+- Save and replay source-review runs, compare evidence versions, and plan reassessment for every declared cohort member without overwriting old results.
+- Include synthetic protocol fixtures, bilingual introductions, and textbook chapter 16.
+
+This is a source-review protocol and deterministic enforcement layer. It does not authenticate imported web text, prove the independence of all sources, guarantee retrieval completeness, or establish scientific truth. The revision plan tracks pending work; it does not automatically execute reassessments.
+
 ## Next — Controlled live validation
 
 Run public, consented examples using explicit supported model versions. Record requests, validated responses, failures, latency, token usage, and observed cost. Test valid alternatives, unsupported conclusions, conditions, prompt injection attempts, refusal, and truncation.
@@ -36,13 +50,13 @@ Acceptance: publish a reproducible run manifest and reviewed failure cases. Dist
 
 ## Next — Review and adjudication
 
-Develop an explicit review workflow for disputed anchors. Preserve the two original judgments, reviewer rationale, and any new policy version. A reviewer may identify a broken rubric, a model error, or a genuinely unresolved case.
+Extend the evidence-version reassessment plan into an explicit review workflow for disputed anchors and completed adjudications. Preserve the two original judgments, reviewer rationale, and any new policy version. A reviewer may identify a broken rubric, a model error, or a genuinely unresolved case.
 
 Acceptance: an amended outcome has a traceable reason and cannot silently replace its original evidence. Re-evaluate all affected answers after a rubric change.
 
 ## Next — Evaluate and improve research selection
 
-Evaluate the implemented catalog selector and bibliographic discovery workflow. Improve semantic relevance checks and source curation using measured failure cases. Adding a perspective must not add weight to an unchanged criterion.
+Evaluate the implemented catalog selector, bibliographic discovery, and claim-level evidence review workflow. Measure source eligibility, applicability, false support, missed contradictions, and valid-alternative rejection against independent review. Adding a perspective must not add weight to an unchanged criterion.
 
 Acceptance: compare small and larger relevant perspective sets under controlled budgets, including duplicated and irrelevant lenses. Publish cases where more perspectives harm performance.
 

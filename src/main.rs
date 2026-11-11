@@ -1,13 +1,37 @@
 use percent_grading::{
-    VERSION, contract, discovery, grading,
+    VERSION, contract, discovery, evidence, evidence_runner, grading,
     providers::Limits,
-    research,
+    research, revision,
     runner::{self, RunConfig},
 };
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 
-const HELP: &str = "Percent Grading: a checked contract and exactly two AI providers\n\n  percent-grading compile POLICY.aha --out CONTRACT.json\n  percent-grading inspect CONTRACT.json\n  percent-grading discover CONTRACT.json --out SEARCH.json [--query TEXT] [--rows 10] [--timeout-seconds 15]\n  percent-grading select CONTRACT.json CATALOG.json --out RESEARCH.json [--max-perspectives 8] [--max-context-bytes 16000]\n  percent-grading inspect-research CONTRACT.json RESEARCH.json\n  percent-grading prompt CONTRACT.json ANSWER.txt [--research RESEARCH.json]\n  percent-grading demo CONTRACT.json FIXTURE.json\n  percent-grading evaluate CONTRACT.json ANSWER.txt OPENAI.json CLAUDE.json\n  percent-grading grade CONTRACT.json ANSWER.txt --openai-model MODEL --claude-model MODEL [--research RESEARCH.json] [--runs-dir local-runs] [--max-output-tokens 4096] [--max-attempts 1] [--timeout-seconds 60]\n  percent-grading replay RUN_DIRECTORY\n\nOnly grade calls AI APIs and incurs provider usage. Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Select and prompt work offline. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Demo uses manual judgments; it is not an AI benchmark. Existing files and saved judgments are never overwritten.";
+const HELP: &str = r#"Percent Grading: a checked contract and exactly two AI providers
+
+  percent-grading compile POLICY.aha --out CONTRACT.json
+  percent-grading inspect CONTRACT.json
+  percent-grading discover CONTRACT.json --out SEARCH.json [--query TEXT] [--rows 10] [--timeout-seconds 15]
+  percent-grading select CONTRACT.json CATALOG.json --out RESEARCH.json [--max-perspectives 8] [--max-context-bytes 16000]
+  percent-grading inspect-research CONTRACT.json RESEARCH.json
+  percent-grading evidence-policy CONTRACT.json POLICY.aha --out POLICY.json
+  percent-grading evidence-prepare CONTRACT.json POLICY.json DOSSIER.json --out INPUT.json
+  percent-grading evidence-prompt CONTRACT.json INPUT.json
+  percent-grading evidence-import CONTRACT.json INPUT.json OPENAI_REVIEW.json CLAUDE_REVIEW.json --out EVIDENCE.json
+  percent-grading inspect-evidence CONTRACT.json EVIDENCE.json
+  percent-grading audit-evidence CONTRACT.json INPUT.json --openai-model MODEL --claude-model MODEL [API_OPTIONS]
+  percent-grading replay-evidence RUN_DIRECTORY
+  percent-grading evidence-compare CONTRACT.json OLD_EVIDENCE.json NEW_EVIDENCE.json
+  percent-grading revise-evidence CONTRACT.json OLD_EVIDENCE.json NEW_EVIDENCE.json COHORT.json --reason TEXT --out PLAN.json
+  percent-grading prompt CONTRACT.json ANSWER.txt [--research RESEARCH.json | --evidence EVIDENCE.json]
+  percent-grading demo CONTRACT.json FIXTURE.json
+  percent-grading evaluate CONTRACT.json ANSWER.txt OPENAI.json CLAUDE.json [--evidence EVIDENCE.json]
+  percent-grading grade CONTRACT.json ANSWER.txt --openai-model MODEL --claude-model MODEL [--research RESEARCH.json | --evidence EVIDENCE.json] [API_OPTIONS]
+  percent-grading replay RUN_DIRECTORY
+
+API_OPTIONS: --runs-dir DIR --max-output-tokens 4096 --max-attempts 1 --timeout-seconds 60
+Only grade and audit-evidence call AI APIs and incur provider usage. Set OPENAI_API_KEY and ANTHROPIC_API_KEY in the environment. Models must support structured JSON output. Both providers receive the same inputs independently.
+Discover sends the explicit query (or contract question) to Crossref for bibliographic candidates, not validated facts. Evidence sources and search logs are supplied records; preparation does not fetch or certify them. Imported reviews and demo fixtures do not attest provider execution. Revision creates a pending plan for every declared cohort member, not a completed regrade. Existing files and saved judgments are never overwritten."#;
 
 fn options(args: &[String], allowed: &[&str]) -> Result<BTreeMap<String, String>, String> {
     if !args.len().is_multiple_of(2) {
@@ -38,6 +62,18 @@ fn number<T: std::str::FromStr>(
         None => Ok(default),
         Some(value) => value.parse().map_err(|_| format!("{key}: invalid integer")),
     }
+}
+fn run_config(opts: &BTreeMap<String, String>) -> Result<RunConfig, String> {
+    Ok(RunConfig {
+        openai_model: required(opts, "--openai-model")?.into(),
+        claude_model: required(opts, "--claude-model")?.into(),
+        limits: Limits {
+            timeout_seconds: number(opts, "--timeout-seconds", 60)?,
+            max_output_tokens: number(opts, "--max-output-tokens", 4096)?,
+            max_response_bytes: 2 * 1024 * 1024,
+            max_attempts: number(opts, "--max-attempts", 1)?,
+        },
+    })
 }
 fn run(args: &[String]) -> Result<Value, String> {
     match args.first().map(String::as_str) {
@@ -105,15 +141,120 @@ fn run(args: &[String]) -> Result<Value, String> {
                 json!({"pack_hash":pack.pack_hash,"contract_hash":pack.contract_hash,"config":pack.config,"diagnostics":pack.diagnostics,"context":pack.context()}),
             )
         }
+        Some("evidence-policy") if args.len() >= 3 => {
+            let opts = options(&args[3..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let source = runner::read_text(Path::new(&args[2]), 256 * 1024)?;
+            let policy = evidence::compile_policy(&lock, &source)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &policy)?;
+            Ok(
+                json!({"status":"evidence_policy_compiled","output":target,"policy_hash":policy.policy_hash}),
+            )
+        }
+        Some("evidence-prepare") if args.len() >= 4 => {
+            let opts = options(&args[4..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let policy = runner::read_json(Path::new(&args[2]))?;
+            let dossier = runner::read_json(Path::new(&args[3]))?;
+            let input = evidence::prepare(&lock, &policy, &dossier)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &input)?;
+            Ok(
+                json!({"status":"evidence_prepared","output":target,"input_hash":input.input_hash,"interpretation":"Structure and exact quotes checked; semantic evidence review remains required."}),
+            )
+        }
+        Some("evidence-prompt") if args.len() == 3 => {
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let input: evidence::EvidenceInput = runner::read_json(Path::new(&args[2]))?;
+            input.verify(&lock)?;
+            let (system, user) = evidence::build_prompt(&input)?;
+            Ok(json!({"system":system,"user":user,"schema":evidence::response_schema(&input)}))
+        }
+        Some("evidence-import") if args.len() >= 5 => {
+            let opts = options(&args[5..], &["--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let input = runner::read_json(Path::new(&args[2]))?;
+            let openai = runner::read_json(Path::new(&args[3]))?;
+            let claude = runner::read_json(Path::new(&args[4]))?;
+            let pack = evidence::aggregate(&lock, &input, &openai, &claude)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &pack)?;
+            Ok(
+                json!({"origin":"imported_reviews","output":target,"pack_hash":pack.pack_hash,"claims":pack.claims,"blocked_criteria":pack.blocked_criteria,"interpretation":"Imported reviews do not attest that either provider was called."}),
+            )
+        }
+        Some("inspect-evidence") if args.len() == 3 => {
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let pack: evidence::EvidencePack = runner::read_json(Path::new(&args[2]))?;
+            pack.verify(&lock)?;
+            Ok(
+                json!({"pack_hash":pack.pack_hash,"claims":pack.claims,"blocked_criteria":pack.blocked_criteria,"context":pack.context()}),
+            )
+        }
+        Some("audit-evidence") if args.len() >= 3 => {
+            let opts = options(
+                &args[3..],
+                &[
+                    "--openai-model",
+                    "--claude-model",
+                    "--runs-dir",
+                    "--max-output-tokens",
+                    "--max-attempts",
+                    "--timeout-seconds",
+                ],
+            )?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let input = runner::read_json(Path::new(&args[2]))?;
+            evidence_runner::audit(
+                &lock,
+                &input,
+                &run_config(&opts)?,
+                Path::new(
+                    opts.get("--runs-dir")
+                        .map(String::as_str)
+                        .unwrap_or("local-runs/evidence"),
+                ),
+            )
+        }
+        Some("replay-evidence") if args.len() == 2 => evidence_runner::replay(Path::new(&args[1])),
+        Some("evidence-compare") if args.len() == 4 => {
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let old = runner::read_json(Path::new(&args[2]))?;
+            let new = runner::read_json(Path::new(&args[3]))?;
+            revision::compare(&lock, &old, &new)
+        }
+        Some("revise-evidence") if args.len() >= 5 => {
+            let opts = options(&args[5..], &["--reason", "--out"])?;
+            let lock = runner::load_contract(Path::new(&args[1]))?;
+            let old = runner::read_json(Path::new(&args[2]))?;
+            let new = runner::read_json(Path::new(&args[3]))?;
+            let cohort = runner::read_json(Path::new(&args[4]))?;
+            let plan = revision::plan(&lock, &old, &new, &cohort, required(&opts, "--reason")?)?;
+            let target = required(&opts, "--out")?;
+            runner::write_new(Path::new(target), &plan)?;
+            Ok(
+                json!({"status":"reassessment_planned","output":target,"plan":plan,"interpretation":"Every declared cohort member is pending reassessment. No answer has been regraded and no API has been called."}),
+            )
+        }
         Some("prompt") if args.len() >= 3 => {
-            let opts = options(&args[3..], &["--research"])?;
+            let opts = options(&args[3..], &["--research", "--evidence"])?;
             let lock = runner::load_contract(Path::new(&args[1]))?;
             let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
             let pack: Option<research::ResearchPack> = opts
                 .get("--research")
                 .map(|p| runner::read_json(Path::new(p)))
                 .transpose()?;
-            let (system, user) = runner::build_prompt(&lock, &answer, pack.as_ref())?;
+            let evidence: Option<evidence::EvidencePack> = opts
+                .get("--evidence")
+                .map(|p| runner::read_json(Path::new(p)))
+                .transpose()?;
+            let (system, user) = runner::build_prompt_with_evidence(
+                &lock,
+                &answer,
+                pack.as_ref(),
+                evidence.as_ref(),
+            )?;
             Ok(
                 json!({"system":system,"user":user,"schema":grading::response_schema(&lock.contract)}),
             )
@@ -122,13 +263,14 @@ fn run(args: &[String]) -> Result<Value, String> {
             let lock = runner::load_contract(Path::new(&args[1]))?;
             runner::demo(&lock, &runner::read_json(Path::new(&args[2]))?)
         }
-        Some("evaluate") if args.len() == 5 => {
+        Some("evaluate") if args.len() >= 5 => {
+            let opts = options(&args[5..], &["--evidence"])?;
             let lock = runner::load_contract(Path::new(&args[1]))?;
             let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
             runner::validate_answer(&answer)?;
             let openai = runner::read_json(Path::new(&args[3]))?;
             let claude = runner::read_json(Path::new(&args[4]))?;
-            let report = grading::aggregate(
+            let mut report = grading::aggregate(
                 &lock.contract,
                 &lock.contract_hash,
                 &answer,
@@ -136,7 +278,17 @@ fn run(args: &[String]) -> Result<Value, String> {
                 &openai,
                 &claude,
             )?;
-            Ok(json!({"origin":"imported_judgments","report":report}))
+            let pack: Option<evidence::EvidencePack> = opts
+                .get("--evidence")
+                .map(|p| runner::read_json(Path::new(p)))
+                .transpose()?;
+            if let Some(pack) = &pack {
+                pack.verify(&lock)?;
+                grading::apply_evidence_gate(&mut report, &pack.blocked_criteria)?;
+            }
+            Ok(
+                json!({"origin":"imported_judgments","evidence_hash":pack.as_ref().map(|p| &p.pack_hash),"evidence_assessments":pack.as_ref().map(|p| &p.claims),"report":report}),
+            )
         }
         Some("grade") if args.len() >= 3 => {
             let opts = options(
@@ -149,25 +301,21 @@ fn run(args: &[String]) -> Result<Value, String> {
                     "--max-attempts",
                     "--timeout-seconds",
                     "--research",
+                    "--evidence",
                 ],
             )?;
             let lock = runner::load_contract(Path::new(&args[1]))?;
             let answer = runner::read_text(Path::new(&args[2]), runner::MAX_ANSWER_BYTES as u64)?;
-            let config = RunConfig {
-                openai_model: required(&opts, "--openai-model")?.into(),
-                claude_model: required(&opts, "--claude-model")?.into(),
-                limits: Limits {
-                    timeout_seconds: number(&opts, "--timeout-seconds", 60)?,
-                    max_output_tokens: number(&opts, "--max-output-tokens", 4096)?,
-                    max_response_bytes: 2 * 1024 * 1024,
-                    max_attempts: number(&opts, "--max-attempts", 1)?,
-                },
-            };
+            let config = run_config(&opts)?;
             let pack: Option<research::ResearchPack> = opts
                 .get("--research")
                 .map(|p| runner::read_json(Path::new(p)))
                 .transpose()?;
-            runner::grade_with_research(
+            let evidence: Option<evidence::EvidencePack> = opts
+                .get("--evidence")
+                .map(|p| runner::read_json(Path::new(p)))
+                .transpose()?;
+            runner::grade_with_evidence(
                 &lock,
                 &answer,
                 &config,
@@ -177,6 +325,7 @@ fn run(args: &[String]) -> Result<Value, String> {
                         .unwrap_or("local-runs"),
                 ),
                 pack.as_ref(),
+                evidence.as_ref(),
             )
         }
         Some("replay") if args.len() == 2 => runner::replay(Path::new(&args[1])),

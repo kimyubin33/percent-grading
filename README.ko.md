@@ -2,9 +2,9 @@
 
 **타당한 추론을 인정하면서도, 근거 없는 결론을 드러내는 채점 프로그램입니다.**
 
-[English](README.md) | [한국어](README.ko.md) | [Rust 실행 안내](docs/RUST_GUIDE.md) | [이론 검색·선택 안내](docs/RESEARCH_GUIDE.md) | [영문 교재](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust 실행 안내](docs/RUST_GUIDE.md) | [이론 검색·선택 안내](docs/RESEARCH_GUIDE.md) | [근거 검토 안내](docs/EVIDENCE_GUIDE.md) | [영문 교재](book/Percent-Grading-Textbook.md)
 
-제안자: **김유빈(Yubin Kim)**. 현재 구현은 **Rust 0.3.0**이며, 초기 Python 0.1.1 교육용 프로토타입도 보존합니다.
+제안자: **김유빈(Yubin Kim)**. 현재 구현은 **Rust 0.4.0**이며, 초기 Python 0.1.1 교육용 프로토타입도 보존합니다.
 
 ## 왜 만들기 시작했는가
 
@@ -81,6 +81,27 @@ cargo test --locked
 cargo run --locked -- discover local-runs/apple.lock.json --query "surface reflectance illuminant color perception" --rows 10 --out local-runs/apple.search.json
 ~~~
 
+## 채점에 사용할 근거 검토
+
+0.4.0에서는 답안 채점 전에 **주장별 근거와 성립 조건을 검토하는 선택적 절차**를 추가했습니다. 별도의 RelSpec/AHAA 정책에 자료 채택·제외 조건, 검색 계획, 기준 시점, 독립 근거 수, 주장과 채점 항목의 관계를 선언합니다.
+
+- 원문의 어느 부분이 해당 주장을 뒷받침하는지 정확한 인용으로 연결합니다.
+- OpenAI와 Claude가 같은 자료를 읽고 지지·반박 관계, 적용 조건, 자료 적격성을 각각 판단합니다.
+- Rust는 `지지됨 / 반박됨 / 근거 충돌 / 근거 부족 / 가설` 상태를 계산합니다.
+- 필요한 근거가 미해결이면 두 채점 AI가 만점에 동의해도 해당 항목과 관련된 최종 점수를 확정하지 않습니다. 근거 부족을 학생의 오답이나 자동 0점으로 바꾸지 않습니다.
+- 근거 정책을 개정하면 등록된 답안 전체를 같은 새 기준으로 재평가할 계획을 만듭니다. 이 계획은 API 호출이나 재채점을 자동 실행하지 않습니다.
+
+```text
+cargo run --locked -- evidence-policy local-runs/apple.lock.json policies/apple-evidence.aha --out local-runs/apple.evidence-policy.json
+cargo run --locked -- evidence-prepare local-runs/apple.lock.json local-runs/apple.evidence-policy.json examples/evidence/apple.dossier.json --out local-runs/apple.evidence-input.json
+cargo run --locked -- evidence-import local-runs/apple.lock.json local-runs/apple.evidence-input.json examples/evidence/openai.review.json examples/evidence/claude.review.json --out local-runs/apple.evidence.json
+cargo run --locked -- inspect-evidence local-runs/apple.lock.json local-runs/apple.evidence.json
+```
+
+이 예시는 **합성 자료와 사람이 작성한 검토 결과**로 검증 절차를 보여 줍니다. 실제 논문이나 AI의 정확도를 검증했다는 뜻이 아닙니다. 프로그램은 입력한 원문의 인용 일치 여부를 검사하지만 해당 웹페이지를 자동으로 가져와 진위를 인증하지 않습니다. 검색 기록과 자료의 독립성 표기도 작성자가 제공하며, 두 AI가 같은 오류를 범할 가능성도 남습니다.
+
+실제 자료 검토는 `audit-evidence`, 이후 답안 채점은 `grade --evidence`로 실행합니다. 구체적인 영어 사용법과 제한은 [근거 검토 안내](docs/EVIDENCE_GUIDE.md)에 있습니다.
+
 ## OpenAI와 Claude 연결
 
 환경변수 `OPENAI_API_KEY`와 `ANTHROPIC_API_KEY`를 설정하고, 각 API 계정에서 이용할 수 있는 구조화 출력 지원 모델 ID를 지정합니다.
@@ -90,6 +111,8 @@ cargo run --locked -- grade local-runs/apple.lock.json examples/rust/apple-blue.
 ~~~
 
 실제 채점은 두 API를 호출하므로 요금이 발생할 수 있습니다. ChatGPT 구독과 API 이용은 별도입니다. 재시도 횟수·시간·출력 토큰·응답 크기는 제한하지만 정확한 금액 상한을 보장하지는 않습니다. 인증키는 계약이나 실행 결과에 저장하지 않습니다.
+
+검토된 근거를 사용하려면 `--research` 대신 `--evidence local-runs/apple.evidence.json`을 지정합니다. 두 옵션은 함께 쓸 수 없습니다. `audit-evidence`의 자료 검토와 `grade`의 답안 채점은 별도의 유료 API 호출이며, 저장된 결과의 재생에는 새 호출이 필요하지 않습니다.
 
 ## 현재 범위와 문서
 
@@ -101,11 +124,14 @@ cargo run --locked -- grade local-runs/apple.lock.json examples/rust/apple-blue.
 | 실행 기록과 재생 | 구현 |
 | 카탈로그 자동 선택·중복 제한·선택 스냅샷 | 구현 |
 | Crossref 서지정보 검색 | 구현; 출판물 메타데이터만 검색 |
+| 주장·원문 연결, 두 AI 자료 검토, 근거 미해결 시 점수 확정 보류 | 구현; 의미 판단의 정확성까지 보장하지 않음 |
+| 근거 정책 비교와 등록 답안 전체 재평가 계획 | 구현; 실제 재채점은 별도 실행 |
 | 이론의 자동 검증·모든 관점의 완전한 탐색 | 미구현 |
 | 기존 채점보다 우수하다는 실증 | 아직 없음 |
 
 - [Rust 실행·계약·API 안내](docs/RUST_GUIDE.md)
 - [검색·출처·카탈로그·선택 안내](docs/RESEARCH_GUIDE.md)
+- [주장별 근거 검토와 공통 재평가 안내](docs/EVIDENCE_GUIDE.md)
 - [영문 교재: Rust와 연구 맥락 선택 장 포함](book/Percent-Grading-Textbook.md)
 - [구조와 신뢰 경계](docs/ARCHITECTURE.md)
 - [실험 계획](docs/EXPERIMENTS.md) · [로드맵](docs/ROADMAP.md)

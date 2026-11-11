@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 - 2026-11-12
+
+- Added a real RelSpec/AHAA evidence-policy profile with claim coverage, conditions, inclusion and exclusion rules, origin thresholds, and context limits.
+- Added frozen source dossiers, exact claim-to-source quotation checks, and declared support/counterevidence search records.
+- Added two-provider source audits with categorical support, applicability, and eligibility reviews, immutable first-response records, resume, and replay.
+- Derived explicit supported, contradicted, conflicted, insufficient, and hypothesis states; repeated origins and duplicate text cannot inflate independent support.
+- Added opt-in deterministic grading gates: unresolved required evidence withholds affected settled awards even when answer judges agree.
+- Preserved ordinary grading and 0.2/0.3 replay; reviewed evidence and unreviewed research packs cannot be combined in one grading request.
+- Added evidence comparison and a versioned reassessment plan covering every declared cohort member without automatic API calls or overwritten results.
+- Added synthetic evidence fixtures, an English evidence guide, bilingual introductions, and textbook chapter 16.
+- Passed 123 local Rust tests, 16 legacy Python tests, formatting, Clippy, and a release build. The bundled CLI examples verify score withholding and a complete pending revision cohort without API calls.
+
+The example reviews are manually authored protocol fixtures, not real provider outputs. Source text and search histories are supplied by the curator; the program does not fetch or authenticate their URLs. No paid live-provider evaluation was performed for this release. Software checks do not establish scientific truth or educational validity.
+
 ## 0.3.0 — 2026-11-12
 
 - Added bounded Crossref bibliographic discovery with DOI metadata and verifiable snapshots.

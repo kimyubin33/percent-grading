@@ -2,9 +2,9 @@
 
 **Recognize valid reasoning without hiding an unsupported conclusion.**
 
-[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
+[English](README.md) | [한국어](README.ko.md) | [Rust guide](docs/RUST_GUIDE.md) | [Research guide](docs/RESEARCH_GUIDE.md) | [Evidence guide](docs/EVIDENCE_GUIDE.md) | [Textbook](book/Percent-Grading-Textbook.md)
 
-Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.3.0**, with the Python 0.1.1 teaching prototype retained.
+Proposed by **Yubin Kim**. Experimental research and engineering project. Current implementation: **Rust 0.4.0**, with the Python 0.1.1 teaching prototype retained.
 
 ## Why this project began
 
@@ -86,6 +86,21 @@ cargo run --locked -- discover local-runs/apple.lock.json --query "surface refle
 
 This sends the query to Crossref, not to another AI model. Results are publication metadata to inspect before curating new catalog entries. They are not scientific conclusions or automatic additions to the rubric. See the [research guide](docs/RESEARCH_GUIDE.md) for source requirements, selection limits, and the distinction between discovery and evidence.
 
+## Check the evidence used for grading
+
+Version 0.4 adds an optional evidence workflow before learner-answer evaluation. A separate RelSpec/AHAA policy declares source admission rules and claims for each criterion. Imported source excerpts are linked to exact quotations. OpenAI and Claude review the same links for support, contradiction, applicability, and eligibility.
+
+Rust derives explicit evidence states and **withholds a final score for affected criteria when required evidence is unresolved**, even if both answer judges award full credit. It does not turn missing sources into an automatic learner error. Future hypotheses remain separate from established present claims.
+
+```text
+cargo run --locked -- evidence-policy local-runs/apple.lock.json policies/apple-evidence.aha --out local-runs/apple.evidence-policy.json
+cargo run --locked -- evidence-prepare local-runs/apple.lock.json local-runs/apple.evidence-policy.json examples/evidence/apple.dossier.json --out local-runs/apple.evidence-input.json
+cargo run --locked -- evidence-import local-runs/apple.lock.json local-runs/apple.evidence-input.json examples/evidence/openai.review.json examples/evidence/claude.review.json --out local-runs/apple.evidence.json
+cargo run --locked -- inspect-evidence local-runs/apple.lock.json local-runs/apple.evidence.json
+```
+
+This example uses clearly labeled **synthetic source material and manual reviews**, not measured AI judgments or validated scientific sources. The [evidence guide](docs/EVIDENCE_GUIDE.md) covers live auditing, grading with `--evidence`, source limitations, and common reassessment plans after an evidence-policy revision. The new workflow records source-review decisions; it does not certify truth or exhaustive retrieval.
+
 ## Live OpenAI and Claude evaluation
 
 Configure `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in your environment, then provide model IDs supported by your accounts:
@@ -95,6 +110,8 @@ cargo run --locked -- grade local-runs/apple.lock.json examples/rust/apple-blue.
 ```
 
 Add `--research local-runs/apple.research.json` to supply the same frozen selection to both judges. It becomes part of the recorded run identity without changing the contract's scoring rules.
+
+Alternatively, use `--evidence local-runs/apple.evidence.json` for a checked evidence pack and deterministic evidence gating. These two options cannot be combined. Use `audit-evidence` for live source reviews before grading; auditing and grading are separate provider calls.
 
 A live grade calls both providers and may incur API charges. A ChatGPT subscription does not supply API access. No third provider or arbitrary API endpoint is supported. Request attempts, timeouts, output tokens, and response sizes are bounded; these limits are not a fixed monetary budget.
 
@@ -112,6 +129,8 @@ The guide explains local records, replay, offline judgment evaluation, and failu
 | Saved run replay and offline fixtures | Implemented |
 | Answer-independent catalog selection, overlap control, and frozen research context | Implemented |
 | Crossref bibliographic discovery | Implemented; metadata only |
+| Claim-to-source links, two-provider source reviews, and evidence gating | Implemented; semantic reviews remain fallible |
+| Evidence revision comparison and common cohort reassessment plans | Implemented; plans do not automatically regrade |
 | Automatic verification of theories or exhaustive semantic discovery | Not implemented |
 | Empirical advantage over existing grading | Not established |
 
@@ -121,7 +140,8 @@ The adapters require compatible model access and credentials for live use. Offli
 
 - [Rust guide: contract, CLI, API setup, and audit records](docs/RUST_GUIDE.md)
 - [Research guide: discovery, catalogs, and frozen selection](docs/RESEARCH_GUIDE.md)
-- [English textbook, including the Rust and research-selection chapters](book/Percent-Grading-Textbook.md)
+- [Evidence guide: claim support, unresolved sources, and reassessment](docs/EVIDENCE_GUIDE.md)
+- [English textbook, including the Rust, selection, and evidence chapters](book/Percent-Grading-Textbook.md)
 - [Architecture and trust boundaries](docs/ARCHITECTURE.md)
 - [Experimental validation](docs/EXPERIMENTS.md)
 - [Related work](docs/RELATED_WORK.md)
