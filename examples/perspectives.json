@@ -1,0 +1,42 @@
+{
+  "registry_version": "0.1.1-example",
+  "status": "illustrative-only-not-loaded-by-cli",
+  "perspectives": [
+    {
+      "id": "explicit-evidence",
+      "version": "1",
+      "name": "Explicit answer evidence",
+      "kind": "project-proposed-method",
+      "criterion_ids": [
+        "water",
+        "membrane"
+      ],
+      "relevance": "Check the named substance and membrane properties directly in the response.",
+      "assumptions": [
+        "Do not infer hidden knowledge beyond the answer."
+      ],
+      "sources": [
+        "docs/CONCEPT.md"
+      ],
+      "overlap_group": "answer-evidence"
+    },
+    {
+      "id": "condition-counterexample",
+      "version": "1",
+      "name": "Conditions and counterexamples",
+      "kind": "project-proposed-method",
+      "criterion_ids": [
+        "direction",
+        "scope"
+      ],
+      "relevance": "Separate a direction claim from the assumptions supporting it.",
+      "assumptions": [
+        "Use the task's declared elementary assumptions."
+      ],
+      "sources": [
+        "docs/CONCEPT.md"
+      ],
+      "overlap_group": "scope-check"
+    }
+  ]
+}

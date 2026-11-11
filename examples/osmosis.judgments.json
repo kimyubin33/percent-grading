@@ -1,0 +1,37 @@
+{
+  "case_id": "osmosis-001",
+  "rubric_version": "osmosis-r1-en",
+  "judge_id": "manual-demo-v1-en",
+  "judgments": [
+    {
+      "criterion_id": "water",
+      "score": 1,
+      "evidence": [
+        "Water moves"
+      ],
+      "reason": "The answer explicitly identifies water movement. This is a manual teaching judgment."
+    },
+    {
+      "criterion_id": "direction",
+      "score": 1,
+      "evidence": [
+        "toward the higher solute concentration"
+      ],
+      "reason": "The direction matches the elementary assumptions. Explicit assumptions are scored separately."
+    },
+    {
+      "criterion_id": "membrane",
+      "score": 0.4,
+      "evidence": [
+        "through the membrane"
+      ],
+      "reason": "The answer mentions the membrane but not its selective permeability, matching the 0.4 anchor."
+    },
+    {
+      "criterion_id": "scope",
+      "score": null,
+      "evidence": [],
+      "reason": "Deliberately left unresolved to demonstrate abstention in this manual fixture. In an actual evaluation, a clearly required but omitted assumption may receive zero. Omission is not an automatic reason to abstain."
+    }
+  ]
+}

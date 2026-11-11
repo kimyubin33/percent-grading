@@ -1,0 +1,41 @@
+{
+  "case_id": "osmosis-001",
+  "rubric_version": "osmosis-r1-en",
+  "question": "Explain osmosis and its direction. State the assumptions under which your explanation holds.",
+  "answer": "Water moves through the membrane toward the higher solute concentration.",
+  "reference": "In the elementary model, a selectively permeable membrane allows water to pass but not the solute. For dilute solutions of the same solute with equal hydrostatic pressure on both sides, net water movement is toward the higher solute concentration. A more general account using water chemical potential is also acceptable. Concentration alone does not determine direction under arbitrary pressure or solute conditions.",
+  "policy": {
+    "coverage_min": 0.8
+  },
+  "criteria": [
+    {
+      "id": "water",
+      "dimension": "component",
+      "description": "Identify water as the moving substance. Anchor: 0 for absent or wrong substance; 1 for explicit water movement.",
+      "weight": 0.35,
+      "critical": false
+    },
+    {
+      "id": "direction",
+      "dimension": "relation",
+      "description": "Under the elementary assumptions, describe net movement toward higher solute concentration or give a valid chemical-potential account. Anchor: 0 for a wrong direction; 1 for a correct direction. Score explicit assumptions only under scope.",
+      "weight": 0.3,
+      "critical": true,
+      "critical_threshold": 0.75
+    },
+    {
+      "id": "membrane",
+      "dimension": "relation",
+      "description": "Explain selective permeability and the water/solute distinction. Anchors: 0 for no valid membrane role; 0.4 for mentioning passage through a membrane; 1 for explaining the required selectivity.",
+      "weight": 0.25,
+      "critical": false
+    },
+    {
+      "id": "scope",
+      "dimension": "condition",
+      "description": "State the assumptions supporting the concentration explanation, or explain the general conditions using chemical potential. Anchor: 0 for no required assumptions; 1 for a sufficient account; explain intermediate scores.",
+      "weight": 0.1,
+      "critical": false
+    }
+  ]
+}
